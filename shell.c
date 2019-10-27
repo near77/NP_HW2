@@ -188,6 +188,7 @@ int* parse_userpipe(char* line)
             userpipe_idx[j] = i;
             j++;
         }
+        i++;
     }
     free(user_line);
     return userpipe_idx;
