@@ -29,18 +29,6 @@ int check_builtin(vector <string> args)
 }
 //----------------------------------------------------
 
-vector <string> parse_line(string line, string const delimiter)
-{
-    vector <string> tokens;
-    size_t beg, pos = 0;
-    while ((beg = line.find_first_not_of(delimiter, pos)) != string::npos)
-    {
-        pos = line.find_first_of(delimiter, beg + 1);
-        tokens.push_back(line.substr(beg, pos - beg));
-    }
-    return tokens;
-}
-
 struct command{
     vector<string> args;
     string type;
@@ -55,8 +43,7 @@ struct number_pipe
     int out_fd;
 };
 
-
-vector <command> parse_line_test(string line)
+vector <command> parse_line(string line)
 {
     //--Split with space-----------------------------
     string const deli{' '};
@@ -102,6 +89,7 @@ vector <command> parse_line_test(string line)
                         i++;
                     }
                     i++;
+                    if(i >= tokens.size()){break;}
                 }
                 else if(tokens[i][0] == '!')//err pipe or err num pipe
                 {
@@ -126,7 +114,7 @@ vector <command> parse_line_test(string line)
                     cmd.args.push_back(tokens[i]);
                 }
             }
-            if(i == tokens.size()){line_end = 1;}
+            if(i >= tokens.size()){line_end = 1;}
             break;
         } 
         cmd_line.push_back(cmd);
@@ -134,16 +122,21 @@ vector <command> parse_line_test(string line)
     return cmd_line;
 }
 
-
 int execute_cmd(vector <string> args)//Execute bin command
 {
     char * exec_args[1024];
     int arg_count = 0;
-    for (int x = 0; x < args.size(); x++) {
-    exec_args[arg_count++] = strdup(args[x].c_str());
+    for (int x = 0; x < args.size(); x++) 
+    {
+        exec_args[arg_count++] = strdup(args[x].c_str());
     }
     exec_args[arg_count++] = 0; // tell it when to stop!
     int status = execvp(exec_args[0], exec_args);
+    if(status == -1)
+    {
+        printf("Unknown command: [%s].\n", exec_args[0]);
+        exit(0);
+    }
     return status;
 }
 
@@ -166,60 +159,60 @@ void shell_loop()
     int cmd_no = 1;
     while(true)
     {
-        printf("> ");
+        printf("%% ");
         getline(cin, line);
         vector <command> cmd_pack;
-        cmd_pack = parse_line_test(line);
-        // for(int i = 0; i < cmd_pack.size(); i++)
-        // {
-        //     printf("cmd: ");
-        //     for(int j = 0; j < cmd_pack[i].args.size(); j++)
-        //     {
-        //         printf("%s ", cmd_pack[i].args[j].c_str());
-        //     }
-        //     printf(", cmd_type: %s \n", cmd_pack[i].type.c_str());
-        // }
+        cmd_pack = parse_line(line);
         for(int i = 0; i < cmd_pack.size(); i++)
         {
+            //--Check builtin--------------------
+            int is_builtin = 0;
+            is_builtin = check_builtin(cmd_pack[i].args);
+            if(is_builtin)
+            {
+                cmd_no++;
+                continue;
+            }
+            //-----------------------------------
+
+            //--Set stdin stdout pipe------------
             int stdin_fd = STDIN_FILENO;
             int stdout_fd = STDOUT_FILENO;
             int is_target = 0;
-            //--Check if current cmd is other's target---------
-            int stdin_pipe[2];
-            for(int k = 0; k < numpipe_table.size(); k++)
+            int target_infd[2];
+
+            for(int j = 0; j < numpipe_table.size(); j++)
             {
-                if(cmd_no == numpipe_table[k].target_cmd_num)
+                if(cmd_no == numpipe_table[j].target_cmd_num)
                 {
+                    close(numpipe_table[j].out_fd);
                     is_target = 1;
-                    stdin_fd = numpipe_table[k].in_fd;
-                    stdin_pipe[0] = numpipe_table[k].in_fd;
-                    stdin_pipe[1] = numpipe_table[k].out_fd;
-                    close(numpipe_table[k].out_fd);
+                    stdin_fd = numpipe_table[j].in_fd;
+                    target_infd[0] = numpipe_table[j].in_fd;
+                    target_infd[1] = numpipe_table[j].out_fd;
+                    break;
                 }
             }
-            //-------------------------------------------------
-
-            if(cmd_pack[i].type == "pipe")
+            if(cmd_pack[i].type == "pipe" or cmd_pack[i].type == "err_pipe")
             {
                 for(int j = 0; j < numpipe_table.size(); j++)
                 {
                     if(cmd_no + 1 == numpipe_table[j].target_cmd_num)
                     {
                         stdout_fd = numpipe_table[j].out_fd;
+                        break;
                     }
                 }
                 if(stdout_fd == STDOUT_FILENO)
                 {
                     int fd[2];
                     pipe(fd);
-                    stdout_fd = fd[1];
-                    //--Update numpipe table-------------
-                    number_pipe target;
+                    struct number_pipe target;
                     target.in_fd = fd[0];
                     target.out_fd = fd[1];
                     target.target_cmd_num = cmd_no + 1;
-                    numpipe_table.push_back(target); 
-                    //-----------------------------------
+                    numpipe_table.push_back(target);
+                    stdout_fd = fd[1];
                 }
             }
             else if(cmd_pack[i].type == "num_pipe" or cmd_pack[i].type == "err_num_pipe")
@@ -229,57 +222,44 @@ void shell_loop()
                     if(cmd_no + cmd_pack[i].num_pipe == numpipe_table[j].target_cmd_num)
                     {
                         stdout_fd = numpipe_table[j].out_fd;
+                        break;
                     }
                 }
                 if(stdout_fd == STDOUT_FILENO)
                 {
                     int fd[2];
                     pipe(fd);
-                    stdout_fd = fd[1];
-                    //--Update numpipe table-------------
-                    number_pipe target;
+                    struct number_pipe target;
                     target.in_fd = fd[0];
                     target.out_fd = fd[1];
                     target.target_cmd_num = cmd_no + cmd_pack[i].num_pipe;
-                    numpipe_table.push_back(target); 
-                    //-----------------------------------
+                    numpipe_table.push_back(target);
+                    stdout_fd = fd[1];
                 }
             }
-            signal(SIGCHLD, childHandler);
-            pid = fork();
-            while(pid < 0)
+            else if(cmd_pack[i].type == "file_pipe")
             {
-                pid = fork();
-                usleep(1000);
+                stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
             }
+            //-----------------------------------
+
+            pid_t pid = fork();
             if(pid == 0)
             {
-                dup2(stdin_fd, STDIN_FILENO);
-                if(cmd_pack[i].type == "err_pipe" or cmd_pack[i].type == "err_num_pipe")
+                if(cmd_pack[i].type == "err_num_pipe" or cmd_pack[i].type == "err_pipe")
                 {
                     dup2(stdout_fd, STDERR_FILENO);
                 }
-                else if(cmd_pack[i].type == "file_pipe")
-                {
-                    stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
-                }
+                dup2(stdin_fd, STDIN_FILENO);
                 dup2(stdout_fd, STDOUT_FILENO);
-                int status = execute_cmd(cmd_pack[i].args);
-                printf("%d\n", status);
+                execute_cmd(cmd_pack[i].args);
+                exit(0);
             }
             else
             {
-                if(is_target){close(stdin_pipe[0]);}
-                int lineEndsWithPipeN = 0;
-                if(cmd_pack[cmd_pack.size()].type == "num_pipe")
-                {
-                    lineEndsWithPipeN = 1;
-                }
-                if(!lineEndsWithPipeN && i == cmd_pack.size())
-                {
-                    int status_child;
-                    waitpid(pid, &status_child, 0);
-                }
+                if(is_target){close(target_infd[0]);}
+                int status;
+                waitpid(pid, &status, 0);
             }
             cmd_no++;
         }
