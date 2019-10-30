@@ -8,15 +8,20 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h> 
+#include <netinet/in.h>
 #define READBUF_SIZE 15000
 #define TOKENBUF_SIZE 256
-#define TOK_DELI " "
+#define TOK_DELI " <>"
 #define CMD_DELI "|!"
 #define FIL_DELI ">"
 #define ERR_DELI1 "|"
 #define ERR_DELI2 "!"
 #define USER_DELI "<>"
-
+#define MAX 80 
+#define PORT 8080 
+#define SA struct sockaddr
 
 
 //--Built in functions-----------------------------------------------
@@ -275,6 +280,37 @@ void childHandler(int signo)
     }
 }
 
+// Function designed for chat between client and server. 
+void func(int sockfd) 
+{ 
+    char buff[MAX]; 
+    int n; 
+    // infinite loop for chat 
+    for (;;) { 
+        bzero(buff, MAX); 
+  
+        // read the message from client and copy it in buffer 
+        read(sockfd, buff, sizeof(buff)); 
+        // print buffer which contains the client contents 
+        printf("From client: %s\t To client : ", buff); 
+        bzero(buff, MAX); 
+        n = 0; 
+        // copy server message in the buffer 
+        while ((buff[n++] = getchar()) != '\n') 
+            ; 
+  
+        // and send that buffer to client 
+        write(sockfd, buff, sizeof(buff)); 
+  
+        // if msg contains "Exit" then server exit and chat ended. 
+        if (strncmp("exit", buff, 4) == 0) { 
+            printf("Server Exit...\n"); 
+            break; 
+        } 
+    } 
+} 
+
+
 void shell_loop()
 {
     char *line;
@@ -289,7 +325,10 @@ void shell_loop()
     do
     {
         printf("%% ");
-        line = read_line();
+        //line = read_line();
+        //--Read from client-----------------------------------------
+
+        //-----------------------------------------------------------
         if(!line){break;}
 
         //--Parse user pipe------------------------------------------
