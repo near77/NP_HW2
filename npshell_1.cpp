@@ -9,6 +9,9 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 using namespace std;
 
 //-----Built in command-------------------------------
@@ -29,7 +32,8 @@ int check_builtin(vector <string> args)
 }
 //----------------------------------------------------
 
-struct command{
+struct command
+{
     vector<string> args;
     string type;
     string file;
@@ -45,6 +49,13 @@ struct number_pipe
 
 vector <command> parse_line(string line)
 {
+    string temp = "";
+    for(int i = 0; i < line.length(); i++)
+    {
+        fflush(stdout);
+        if(line[i] != '\r'){temp += line[i];}
+    }
+    line = temp;
     //--Split with space-----------------------------
     string const deli{' '};
     vector <string> tokens;
@@ -154,8 +165,11 @@ void childHandler(int signo)
 }
 
 
-void shell_loop()
+void shell_loop(int socket_fd)
 {
+    dup2(socket_fd, STDOUT_FILENO);
+    dup2(socket_fd, STDIN_FILENO);
+    dup2(socket_fd, STDERR_FILENO);
     string line;
     string const DELI{" "};
     vector <number_pipe> numpipe_table;
@@ -181,8 +195,8 @@ void shell_loop()
             //-----------------------------------
 
             //--Set stdin stdout pipe------------
-            int stdin_fd = STDIN_FILENO;
-            int stdout_fd = STDOUT_FILENO;
+            int stdin_fd = socket_fd;
+            int stdout_fd = socket_fd;
             int is_target = 0;
             int target_infd[2];
 
@@ -208,7 +222,7 @@ void shell_loop()
                         break;
                     }
                 }
-                if(stdout_fd == STDOUT_FILENO)
+                if(stdout_fd == socket_fd)
                 {
                     int fd[2];
                     pipe(fd);
@@ -230,7 +244,7 @@ void shell_loop()
                         break;
                     }
                 }
-                if(stdout_fd == STDOUT_FILENO)
+                if(stdout_fd == socket_fd)
                 {
                     int fd[2];
                     pipe(fd);
@@ -281,9 +295,54 @@ void shell_loop()
 }
 
 
-int main()
+int main(int argc, char *argv[])
 {
     setenv("PATH", "bin:.", 1);
-    shell_loop();
+    int server_fd, new_socket, valread; 
+    struct sockaddr_in address; 
+    int opt = 1; 
+    int addrlen = sizeof(address); 
+    char buffer[1024] = {0}; 
+    string login_message = "***************************************\n\
+** Welcome to the information server **\n\
+***************************************\n\
+*** User ’(no name)’ entered from \n";
+    
+    // Creating socket file descriptor 
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) 
+    { 
+        perror("socket failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+    
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) 
+    { 
+        perror("setsockopt"); 
+        exit(EXIT_FAILURE); 
+    }
+
+    int PORT = atoi(argv[1]);
+    address.sin_family = AF_INET; 
+    address.sin_addr.s_addr = INADDR_ANY; 
+    address.sin_port = htons( PORT ); 
+    if (bind(server_fd, (struct sockaddr *)&address,  
+                                 sizeof(address))<0) 
+    { 
+        perror("bind failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+    if (listen(server_fd, 3) < 0) 
+    { 
+        perror("listen"); 
+        exit(EXIT_FAILURE); 
+    } 
+    if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
+                       (socklen_t*)&addrlen))<0) 
+    { 
+        perror("accept"); 
+        exit(EXIT_FAILURE); 
+    }
+    // send(new_socket , login_message.c_str() , strlen(login_message.c_str()) , 0 );
+    shell_loop(new_socket);
     return 0;
 }
