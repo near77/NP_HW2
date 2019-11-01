@@ -591,7 +591,6 @@ int main(int argc, char *argv[])
                     }
                     // buffer[valread] = '\0';   
                     // send(sd , buffer , strlen(buffer) , 0 );
-
                 }   
             }   
         }  
