@@ -303,10 +303,6 @@ int main(int argc, char *argv[])
     int opt = 1; 
     int addrlen = sizeof(address); 
     char buffer[1024] = {0}; 
-    string login_message = "***************************************\n\
-** Welcome to the information server **\n\
-***************************************\n\
-*** User ’(no name)’ entered from \n";
     
     // Creating socket file descriptor 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) 
@@ -320,11 +316,16 @@ int main(int argc, char *argv[])
         perror("setsockopt"); 
         exit(EXIT_FAILURE); 
     }
-
+    if(argc < 2)
+    {
+        perror("In address not found");
+        exit(EXIT_FAILURE);
+    }
     int PORT = atoi(argv[1]);
     address.sin_family = AF_INET; 
     address.sin_addr.s_addr = INADDR_ANY; 
     address.sin_port = htons( PORT ); 
+    
     if (bind(server_fd, (struct sockaddr *)&address,  
                                  sizeof(address))<0) 
     { 
@@ -342,7 +343,7 @@ int main(int argc, char *argv[])
         perror("accept"); 
         exit(EXIT_FAILURE); 
     }
-    // send(new_socket , login_message.c_str() , strlen(login_message.c_str()) , 0 );
+    
     shell_loop(new_socket);
     return 0;
 }
