@@ -15,30 +15,13 @@
 
 using namespace std;
 
-//-----Built in command-------------------------------
-void printenv(vector <string> args)
-{
-    string env = getenv(args[1].c_str());
-    if(env!=""){printf("%s\n", env.c_str());}
-}
-
-int check_builtin(vector <string> args)
-{
-    int is_builtin = 1;
-    if(args[0] == "printenv"){printenv(args);}
-    else if(args[0] == "exit"){exit(0);}
-    else if(args[0] == "setenv"){setenv(args[1].c_str(), args[2].c_str(), 1);}
-    else{is_builtin = 0;}
-    return is_builtin;
-}
-//----------------------------------------------------
-
 struct command
 {
     vector<string> args;
     string type;
     string file;
     int num_pipe;
+    int usr_pipe;
 };
 
 struct number_pipe
@@ -50,10 +33,153 @@ struct number_pipe
 
 struct connection_info
 {
-    int socket;
+    int socket_fd;
     int cmd_no;
+    int user_id;
+    string user_name;
+    string ip_port;
     vector <number_pipe> numpipe_table;
 };
+
+struct user_pipe
+{
+    int in_fd;
+    int out_fd;
+};
+
+//-----Built in command-------------------------------
+void printenv(vector <string> args)
+{
+    string env = getenv(args[1].c_str());
+    if(env!=""){printf("%s\n", env.c_str());}
+}
+
+void who(vector <connection_info> connect_info_table, int socket_fd)
+{
+    printf("<ID>    <nickname>    <IP:port>   <indicate me>\n");
+    for(int j = 1; j <= 30; j++)
+    {
+        for(int i = 0; i < connect_info_table.size(); i++)
+        {
+            if(j == connect_info_table[i].user_id)
+            {
+                if(socket_fd == connect_info_table[i].socket_fd)
+                {
+                    printf("%d    %s    %s    <-me\n", j, 
+                            connect_info_table[i].user_name.c_str(),
+                            connect_info_table[i].ip_port.c_str());
+                }
+                else
+                {
+                    printf("%d    %s    %s    \n", j, 
+                            connect_info_table[i].user_name.c_str(), 
+                            connect_info_table[i].ip_port.c_str());
+                }
+            }
+        }
+    }
+}
+
+void name(string name, vector <connection_info> &connect_info_table, int socket_fd)
+{
+    string message;
+    for(int i = 0; i < connect_info_table.size(); i++)
+    {
+        if(socket_fd == connect_info_table[i].socket_fd)
+        {
+            message = "*** User from " + connect_info_table[i].ip_port + " is named '" + name +"'. ***\n";
+            connect_info_table[i].user_name = name;
+        }
+    }
+
+    for(int i = 0; i < connect_info_table.size(); i++)
+    {
+        send(connect_info_table[i].socket_fd, message.c_str(), message.size(), 0);
+    }
+}
+
+void tell(vector <string> args, vector <connection_info> connect_info_table, int socket_fd)
+{
+    string message = "";
+    int target_fd = -1;
+    for(int i = 0; i < connect_info_table.size(); i++)
+    {
+        if(socket_fd == connect_info_table[i].socket_fd)
+        {
+            message = "*** "+connect_info_table[i].user_name+" told you ***: ";
+            for(int j = 2; j < args.size(); j++)
+            {
+                message += args[j];
+                if(j != args.size()-1)
+                {
+                    message += " ";
+                }
+            }
+            message += "\n";
+        }
+        if(stoi(args[1]) == connect_info_table[i].user_id)
+        {
+            target_fd = connect_info_table[i].socket_fd;
+            
+        }
+    }
+    if(target_fd == -1)
+    {
+        printf("*** Error: user #%s does not exist yet. ***\n", args[1].c_str());
+    }
+    else
+    {
+        send(target_fd, message.c_str(), message.size(), 0);
+    }
+    
+}
+
+void yell(vector <string> args, vector <connection_info> connect_info_table, int socket_fd)
+{
+    string message = "";
+    for(int i = 0; i < connect_info_table.size(); i++)
+    {
+        if(socket_fd == connect_info_table[i].socket_fd)
+        {
+            message = "*** "+connect_info_table[i].user_name+" yelled ***: ";
+            for(int j = 1; j < args.size(); j++)
+            {
+                message += args[j];
+                if(j != args.size()-1)
+                {
+                    message += " ";
+                }
+            }
+            message += "\n";
+        }
+    }
+    for(int i = 0; i < connect_info_table.size(); i++)
+    {
+        send(connect_info_table[i].socket_fd, message.c_str(), message.size(), 0);
+    }
+}
+
+int check_builtin(vector <string> args, vector <connection_info> &connect_info_table, int socket_fd)
+{
+    dup2(socket_fd, STDOUT_FILENO);
+    int is_builtin = 1;
+    if(args[0] == "printenv"){printenv(args);}
+    else if(args[0] == "exit"){exit(0);}
+    else if(args[0] == "setenv"){setenv(args[1].c_str(), args[2].c_str(), 1);}
+    else if(args[0] == "who"){who(connect_info_table, socket_fd);}
+    else if(args[0] == "name"){name(args[1], connect_info_table, socket_fd);}
+    else if(args[0] == "tell"){tell(args, connect_info_table, socket_fd);}
+    else if(args[0] == "yell"){yell(args, connect_info_table, socket_fd);}
+    else
+    {
+        is_builtin = 0;
+        dup2(STDOUT_FILENO, STDOUT_FILENO);
+    }
+    return is_builtin;
+}
+//----------------------------------------------------
+
+
 
 vector <command> parse_line(string line)
 {
@@ -99,7 +225,8 @@ vector <command> parse_line(string line)
                 {
                     if(tokens[i][1])
                     {
-                        cmd.type = "user_pipe";
+                        cmd.type = "out_user_pipe";
+                        cmd.usr_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
                     else
                     {
@@ -125,7 +252,8 @@ vector <command> parse_line(string line)
                 {
                     if(tokens[i][1])
                     {
-                        cmd.type = "user_pipe";
+                        cmd.type = "in_user_pipe";
+                        cmd.usr_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
                 }
                 else//args
@@ -172,169 +300,14 @@ void childHandler(int signo)
     }
 }
 
-
-void shell_loop(int socket_fd)
+int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_table,
+                    string &line, vector <connection_info> &connect_info_table)
 {
-    dup2(socket_fd, STDOUT_FILENO);
-    dup2(socket_fd, STDIN_FILENO);
-    dup2(socket_fd, STDERR_FILENO);
-    string line;
-    string const DELI{" "};
-    vector <number_pipe> numpipe_table;
-    pid_t pid;
-    int cmd_no = 1;
-    while(true)
-    {
-        printf("%% ");
-        getline(cin, line);
-        if(line.empty()){continue;}
-        vector <command> cmd_pack;
-        cmd_pack = parse_line(line);
-
-        //--Execute cmd one by one---------------
-        for(int i = 0; i < cmd_pack.size(); i++)
-        {
-            //--Check builtin--------------------
-            int is_builtin = 0;
-            is_builtin = check_builtin(cmd_pack[i].args);
-
-            if(is_builtin)
-            {
-                cmd_no++;
-                continue;
-            }
-            //-----------------------------------
-
-            //--Set stdin stdout pipe------------
-            int stdin_fd = socket_fd;
-            int stdout_fd = socket_fd;
-            int is_target = 0;
-            int target_infd[2];
-
-            //--If current cmd is other's target, change stdin----
-            for(int j = 0; j < numpipe_table.size(); j++)
-            {
-                if(cmd_no == numpipe_table[j].target_cmd_num)
-                {
-                    close(numpipe_table[j].out_fd);
-                    is_target = 1;
-                    stdin_fd = numpipe_table[j].in_fd;
-                    target_infd[0] = numpipe_table[j].in_fd;
-                    target_infd[1] = numpipe_table[j].out_fd;
-                    break;
-                }
-            }
-            //----------------------------------------------------
-
-            //--Record pipe or numpipe----------------------------
-            if(cmd_pack[i].type == "pipe" or cmd_pack[i].type == "err_pipe")
-            {
-                for(int j = 0; j < numpipe_table.size(); j++)
-                {
-                    if(cmd_no + 1 == numpipe_table[j].target_cmd_num)
-                    {
-                        stdout_fd = numpipe_table[j].out_fd;
-                        break;
-                    }
-                }
-
-                if(stdout_fd == socket_fd)
-                {
-                    int fd[2];
-                    pipe(fd);
-                    struct number_pipe target;
-                    target.in_fd = fd[0];
-                    target.out_fd = fd[1];
-                    target.target_cmd_num = cmd_no + 1;
-                    numpipe_table.push_back(target);
-                    stdout_fd = fd[1];
-                }
-            }
-            else if(cmd_pack[i].type == "num_pipe" or cmd_pack[i].type == "err_num_pipe")
-            {
-                for(int j = 0; j < numpipe_table.size(); j++)
-                {
-                    if(cmd_no + cmd_pack[i].num_pipe == numpipe_table[j].target_cmd_num)
-                    {
-                        stdout_fd = numpipe_table[j].out_fd;
-                        break;
-                    }
-                }
-
-                if(stdout_fd == socket_fd)
-                {
-                    int fd[2];
-                    pipe(fd);
-                    struct number_pipe target;
-                    target.in_fd = fd[0];
-                    target.out_fd = fd[1];
-                    target.target_cmd_num = cmd_no + cmd_pack[i].num_pipe;
-                    numpipe_table.push_back(target);
-                    stdout_fd = fd[1];
-                }
-            }
-            else if(cmd_pack[i].type == "file_pipe")
-            {
-                stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
-            }
-            //--------------------------------------------------
-
-
-            //--Fork child to execute the command---------------
-            pid_t pid = fork();
-            if(pid == 0)
-            {
-                if(cmd_pack[i].type == "err_num_pipe" or cmd_pack[i].type == "err_pipe")
-                {
-                    dup2(stdout_fd, STDERR_FILENO);
-                }
-
-                dup2(stdin_fd, STDIN_FILENO);
-                dup2(stdout_fd, STDOUT_FILENO);
-
-                //--Close unused fd-----------------
-                for(int fd = 3; fd < 1024; fd++)
-                {
-                    close(fd);
-                }
-                //----------------------------------
-
-                execute_cmd(cmd_pack[i].args);
-                exit(0);
-            }
-            else
-            {
-                int lineEndsWithPipeN = 0;
-                if(cmd_pack[cmd_pack.size()-1].type == "num_pipe" or cmd_pack[cmd_pack.size()-1].type == "err_num_pipe")
-                {
-                    lineEndsWithPipeN = 1;
-                }
-
-                if(is_target)
-                {
-                    close(target_infd[0]);
-                }
-
-                if(!lineEndsWithPipeN && (i == cmd_pack.size()-1))
-                {
-                    int status;
-                    waitpid(pid, &status, 0);
-                }
-            }
-            //---------------------------------------------------
-            cmd_no++;
-        }
-    }
-}
-
-int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_table, string &line)
-{
+    int saved_stdout = dup(STDOUT_FILENO);
     // string line;
     string const DELI{" "};
     pid_t pid;
     
-    // printf("%% ");
-    // getline(cin, line);
     if(line=="\r\n")
     {
         return 0;
@@ -347,8 +320,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
     {
         //--Check builtin--------------------
         int is_builtin = 0;
-        is_builtin = check_builtin(cmd_pack[i].args);
-        
+        is_builtin = check_builtin(cmd_pack[i].args, connect_info_table, socket_fd);
         if(is_builtin)
         {
             cmd_no++;
@@ -357,7 +329,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         //-----------------------------------
 
         //--Set stdin stdout pipe------------
-        int stdin_fd = socket_fd;
+        int stdin_fd = STDIN_FILENO;
         int stdout_fd = socket_fd;
         int is_target = 0;
         int target_infd[2];
@@ -440,10 +412,8 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             {
                 dup2(stdout_fd, STDERR_FILENO);
             }
-
             dup2(stdin_fd, STDIN_FILENO);
             dup2(stdout_fd, STDOUT_FILENO);
-
             //--Close unused fd-----------------
             for(int fd = 3; fd < 1024; fd++)
             {
@@ -476,13 +446,15 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         //---------------------------------------------------
         cmd_no++;
     }
+    dup2(saved_stdout, 1);
+    close(saved_stdout);
 }
 
 
 int main(int argc, char *argv[])
 {
     setenv("PATH", "bin:.", 1);
-
+    int id = 1;
     int opt = 1;   
     int master_socket , addrlen , new_socket , client_socket[30] ,  
           max_clients = 30 , activity, i , valread , sd;   
@@ -544,6 +516,7 @@ int main(int argc, char *argv[])
     }   
          
     //accept the incoming connection  
+    
     addrlen = sizeof(address);   
     puts("Waiting for connections ...");   
     
@@ -605,10 +578,14 @@ int main(int argc, char *argv[])
             
             //--Record every socket's cmd no------------------
             struct connection_info new_connect_info;
-            new_connect_info.socket = new_socket;
+            new_connect_info.socket_fd = new_socket;
             new_connect_info.cmd_no = 1;
+            new_connect_info.user_id = id;
+            new_connect_info.user_name = "(no name)";
+            new_connect_info.ip_port = string(inet_ntoa(address.sin_addr)) + ":" + to_string(ntohs(address.sin_port));
             new_connect_info.numpipe_table = {};
             connect_info_table.push_back(new_connect_info);
+            id ++;
             //------------------------------------------------
 
             string wellcome_message = message;
@@ -637,8 +614,7 @@ int main(int argc, char *argv[])
                     break;   
                 }   
             }   
-        }   
-             
+        }        
         //else its some IO operation on some other socket 
         for (i = 0; i < max_clients; i++)   
         {   
@@ -651,7 +627,7 @@ int main(int argc, char *argv[])
                 int cmdno_table_idx = 0;
                 for(cmdno_table_idx = 0; cmdno_table_idx < connect_info_table.size(); cmdno_table_idx++)
                 {
-                    if (sd == connect_info_table[cmdno_table_idx].socket)
+                    if (sd == connect_info_table[cmdno_table_idx].socket_fd)
                     {
                         break;
                     }
@@ -678,10 +654,10 @@ int main(int argc, char *argv[])
                     string line(buffer);
                     //printf("READ: %s \n", line.c_str());
                     exe_shell_cmd(sd, connect_info_table[cmdno_table_idx].cmd_no,
-                                 connect_info_table[cmdno_table_idx].numpipe_table, line);
+                                 connect_info_table[cmdno_table_idx].numpipe_table, 
+                                 line, connect_info_table);
                     send(sd , "% " , 2 , 0);
                 }   
-                
             }   
         }  
     }
