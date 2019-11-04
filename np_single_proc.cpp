@@ -61,7 +61,7 @@ vector <command> parse_line(string line)
     for(int i = 0; i < line.length(); i++)
     {
         fflush(stdout);
-        if(line[i] != '\r'){temp += line[i];}
+        if(line[i] != '\r' && line[i] != '\n'){temp += line[i];}
     }
     line = temp;
     //--Split with space-----------------------------
@@ -327,18 +327,18 @@ void shell_loop(int socket_fd)
     }
 }
 
-int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_table)
+int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_table, string &line)
 {
-    dup2(socket_fd, STDOUT_FILENO);
-    dup2(socket_fd, STDIN_FILENO);
-    dup2(socket_fd, STDERR_FILENO);
-    string line;
+    // string line;
     string const DELI{" "};
     pid_t pid;
     
-    printf("%% ");
-    getline(cin, line);
-    if(line.empty()){return 0;}
+    // printf("%% ");
+    // getline(cin, line);
+    if(line=="\r\n")
+    {
+        return 0;
+    }
     vector <command> cmd_pack;
     cmd_pack = parse_line(line);
 
@@ -623,7 +623,7 @@ int main(int argc, char *argv[])
             {   
                 perror("send");   
             }
-
+            send(new_socket , "% " , 2 , 0);
             puts("Welcome message sent successfully");   
                  
             //add new socket to array of sockets  
@@ -656,7 +656,7 @@ int main(int argc, char *argv[])
                         break;
                     }
                 }
-
+                
                 if ((valread = read( sd , buffer, 1024)) == 0)   
                 {   
                     //Somebody disconnected , get his details and print  
@@ -675,12 +675,13 @@ int main(int argc, char *argv[])
                     //set the string terminating NULL byte on the end  
                     //of the data read
                     buffer[valread] = '\0';
-                    //send(sd , "% \0" , strlen(buffer) , 0);
                     string line(buffer);
                     //printf("READ: %s \n", line.c_str());
                     exe_shell_cmd(sd, connect_info_table[cmdno_table_idx].cmd_no,
-                                 connect_info_table[cmdno_table_idx].numpipe_table);
+                                 connect_info_table[cmdno_table_idx].numpipe_table, line);
+                    send(sd , "% " , 2 , 0);
                 }   
+                
             }   
         }  
     }
