@@ -133,6 +133,32 @@ void tell(vector <string> args, vector <connection_info> connect_info_table, int
     }
     
 }
+
+void yell(vector <string> args, vector <connection_info> connect_info_table, int socket_fd)
+{
+    string message = "";
+    for(int i = 0; i < connect_info_table.size(); i++)
+    {
+        if(socket_fd == connect_info_table[i].socket_fd)
+        {
+            message = "*** "+connect_info_table[i].user_name+" yelled ***: ";
+            for(int j = 1; j < args.size(); j++)
+            {
+                message += args[j];
+                if(j != args.size()-1)
+                {
+                    message += " ";
+                }
+            }
+            message += "\n";
+        }
+    }
+    for(int i = 0; i < connect_info_table.size(); i++)
+    {
+        send(connect_info_table[i].socket_fd, message.c_str(), message.size(), 0);
+    }
+}
+
 int check_builtin(vector <string> args, vector <connection_info> &connect_info_table, int socket_fd)
 {
     dup2(socket_fd, STDOUT_FILENO);
@@ -143,6 +169,7 @@ int check_builtin(vector <string> args, vector <connection_info> &connect_info_t
     else if(args[0] == "who"){who(connect_info_table, socket_fd);}
     else if(args[0] == "name"){name(args[1], connect_info_table, socket_fd);}
     else if(args[0] == "tell"){tell(args, connect_info_table, socket_fd);}
+    else if(args[0] == "yell"){yell(args, connect_info_table, socket_fd);}
     else
     {
         is_builtin = 0;

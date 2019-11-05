@@ -13,6 +13,7 @@
 #include <netinet/in.h>
 
 using namespace std;
+int exit_flag = 0;
 
 //-----Built in command-------------------------------
 void printenv(vector <string> args)
@@ -25,7 +26,11 @@ int check_builtin(vector <string> args)
 {
     int is_builtin = 1;
     if(args[0] == "printenv"){printenv(args);}
-    else if(args[0] == "exit"){exit(0);}
+    else if(args[0] == "exit")
+    {
+        exit_flag = 1;
+        return is_builtin;
+    }
     else if(args[0] == "setenv"){setenv(args[1].c_str(), args[2].c_str(), 1);}
     else{is_builtin = 0;}
     return is_builtin;
@@ -165,8 +170,13 @@ void childHandler(int signo)
 }
 
 
+
 void shell_loop(int socket_fd)
 {
+    int old_infd = dup(STDIN_FILENO);
+    int old_outfd = dup(STDOUT_FILENO);
+    int old_errfd = dup(STDERR_FILENO);
+
     dup2(socket_fd, STDOUT_FILENO);
     dup2(socket_fd, STDIN_FILENO);
     dup2(socket_fd, STDERR_FILENO);
@@ -189,6 +199,10 @@ void shell_loop(int socket_fd)
             is_builtin = check_builtin(cmd_pack[i].args);
             if(is_builtin)
             {
+                if(exit_flag)
+                {
+                    break;
+                }
                 cmd_no++;
                 continue;
             }
@@ -291,6 +305,15 @@ void shell_loop(int socket_fd)
             }
             cmd_no++;
         }
+        if(exit_flag)
+        {
+            exit_flag = 0;
+            dup2(old_infd, STDIN_FILENO);
+            dup2(old_outfd, STDERR_FILENO);
+            dup2(old_errfd, STDERR_FILENO);
+            //close(socket_fd);
+            break;
+        }
     }
 }
 
@@ -332,18 +355,26 @@ int main(int argc, char *argv[])
         perror("bind failed"); 
         exit(EXIT_FAILURE); 
     } 
-    if (listen(server_fd, 3) < 0) 
-    { 
-        perror("listen"); 
-        exit(EXIT_FAILURE); 
-    } 
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
-                       (socklen_t*)&addrlen))<0) 
-    { 
-        perror("accept"); 
-        exit(EXIT_FAILURE); 
-    }
     
-    shell_loop(new_socket);
+    while(1)
+    {
+        if (listen(server_fd, 3) < 0) 
+        { 
+            perror("listen"); 
+            exit(EXIT_FAILURE); 
+        } 
+
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
+                       (socklen_t*)&addrlen))<0) 
+        { 
+            perror("accept"); 
+            exit(EXIT_FAILURE); 
+        }
+        else
+        {
+            shell_loop(new_socket);
+            close(new_socket);
+        }
+    }
     return 0;
 }

@@ -21,7 +21,8 @@ struct command
     string type;
     string file;
     int num_pipe;
-    int usr_pipe;
+    int in_ust_id;
+    int out_ust_id;
 };
 
 struct number_pipe
@@ -190,6 +191,7 @@ vector <command> parse_line(string line)
         if(line[i] != '\r' && line[i] != '\n'){temp += line[i];}
     }
     line = temp;
+
     //--Split with space-----------------------------
     string const deli{' '};
     vector <string> tokens;
@@ -212,12 +214,15 @@ vector <command> parse_line(string line)
             {
                 if(tokens[i][0] == '|')//pipe or num pipe
                 {
-                    if(tokens[i][1])
+                    if(tokens[i][1])//|1
                     {
                         cmd.type = "num_pipe";
                         cmd.num_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
-                    else{cmd.type = "pipe";}
+                    else//|
+                    {
+                        cmd.type = "pipe";
+                    }
                     i++;
                     break;
                 }
@@ -225,8 +230,23 @@ vector <command> parse_line(string line)
                 {
                     if(tokens[i][1])
                     {
-                        cmd.type = "out_user_pipe";
-                        cmd.usr_pipe = stoi(tokens[i].substr(1, string::npos));
+                        int is_out_usrpipe = 1;
+                        if(i + 1 < tokens.size())
+                        {
+                            if(tokens[i+1][0] == '<')//>1 <2
+                            {
+                                is_out_usrpipe = 0;
+                                cmd.type = "out_in_user_pipe";
+                                cmd.in_ust_id = stoi(tokens[i+1].substr(1, string::npos));
+                                cmd.out_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                i++;
+                            }
+                        }
+                        if(is_out_usrpipe)//>1
+                        {
+                            cmd.type = "out_user_pipe";
+                            cmd.out_ust_id = stoi(tokens[i].substr(1, string::npos));
+                        }
                     }
                     else
                     {
@@ -239,21 +259,71 @@ vector <command> parse_line(string line)
                 }
                 else if(tokens[i][0] == '!')//err pipe or err num pipe
                 {
-                    if(tokens[i][1])
+                    if(tokens[i][1])//!1
                     {
                         cmd.type = "err_num_pipe";
                         cmd.num_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
-                    else{cmd.type = "err_pipe";}
+                    else//!
+                    {
+                        cmd.type = "err_pipe";
+                    }
                     i++;
                     break;
                 }
-                else if(tokens[i][0] == '<')//user pipe
+                else if(tokens[i][0] == '<')
                 {
                     if(tokens[i][1])
                     {
-                        cmd.type = "in_user_pipe";
-                        cmd.usr_pipe = stoi(tokens[i].substr(1, string::npos));
+                        int is_in_usrpipe = 1;
+                        if(i + 1 < tokens.size())
+                        {
+                            if(tokens[i+1][0] == '>')
+                            {
+                                is_in_usrpipe = 0;
+                                if(tokens[i+1][1])//<1 >2
+                                {
+                                    cmd.type = "in_out_user_pipe";
+                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                    cmd.out_ust_id = stoi(tokens[i+1].substr(1, string::npos));
+                                }
+                                else//<1 > file
+                                {
+                                    cmd.type = "in_file_user_pipe";
+                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                    cmd.file = tokens[i+2];
+                                    i++;
+                                }
+                                i++;
+                                i++;
+                                break;
+                            }
+                            else if(tokens[i+1][0] == '|')
+                            {
+                                is_in_usrpipe = 0;
+                                if(tokens[i+1][1])//<1 |2
+                                {
+                                    cmd.type = "in_num_pipe";
+                                    cmd.num_pipe = stoi(tokens[i+1].substr(1, string::npos));
+                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                }
+                                else//<1 |
+                                {
+                                    cmd.type = "in_pipe_user_pipe";
+                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                }
+                                i++;
+                                i++;
+                                break;
+                            }
+                        }
+                        if(is_in_usrpipe)//<1
+                        {
+                            cmd.type = "in_user_pipe";
+                            cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                            i++;
+                            break;
+                        }
                     }
                 }
                 else//args
