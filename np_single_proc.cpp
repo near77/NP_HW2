@@ -212,6 +212,14 @@ vector <command> parse_line(string line)
         {
             for(i; i < tokens.size(); i++)
             {
+                if(tokens[i] == "tell")
+                {
+                    for(i; i < tokens.size(); i++)
+                    {
+                        cmd.args.push_back(tokens[i]);
+                    }
+                    break;
+                }
                 if(tokens[i][0] == '|')//pipe or num pipe
                 {
                     if(tokens[i][1])//|1
