@@ -212,7 +212,7 @@ vector <command> parse_line(string line)
         {
             for(i; i < tokens.size(); i++)
             {
-                if(tokens[i] == "tell")
+                if(tokens[i] == "tell" || tokens[i] == "yell")
                 {
                     for(i; i < tokens.size(); i++)
                     {
@@ -222,12 +222,12 @@ vector <command> parse_line(string line)
                 }
                 if(tokens[i][0] == '|')//pipe or num pipe
                 {
-                    if(tokens[i][1])//|1
+                    if(tokens[i][1])// |1
                     {
                         cmd.type = "num_pipe";
                         cmd.num_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
-                    else//|
+                    else// |
                     {
                         cmd.type = "pipe";
                     }
@@ -241,7 +241,7 @@ vector <command> parse_line(string line)
                         int is_out_usrpipe = 1;
                         if(i + 1 < tokens.size())
                         {
-                            if(tokens[i+1][0] == '<')//>1 <2
+                            if(tokens[i+1][0] == '<')// >1 <2
                             {
                                 is_out_usrpipe = 0;
                                 cmd.type = "out_in_user_pipe";
@@ -250,7 +250,7 @@ vector <command> parse_line(string line)
                                 i++;
                             }
                         }
-                        if(is_out_usrpipe)//>1
+                        if(is_out_usrpipe)// >1
                         {
                             cmd.type = "out_user_pipe";
                             cmd.out_ust_id = stoi(tokens[i].substr(1, string::npos));
@@ -258,8 +258,23 @@ vector <command> parse_line(string line)
                     }
                     else
                     {
-                        cmd.type = "file_pipe";
-                        cmd.file = tokens[i+1];
+                        int is_in_file_pipe = 0;
+                        if(i + 1 < tokens.size())// > file <1
+                        {
+                            if(tokens[i+1][0] == '<')
+                            {
+                                is_in_file_pipe = 1;
+                                cmd.type = "in_file_pipe";
+                                cmd.in_ust_id = stoi(tokens[i+1].substr(1, string::npos));
+                                cmd.file = tokens[i+1];
+                                i++;
+                            }
+                        }
+                        if(!is_in_file_pipe)// > file
+                        {
+                            cmd.type = "file_pipe";
+                            cmd.file = tokens[i+1];
+                        }
                         i++;
                     }
                     i++;
@@ -267,12 +282,12 @@ vector <command> parse_line(string line)
                 }
                 else if(tokens[i][0] == '!')//err pipe or err num pipe
                 {
-                    if(tokens[i][1])//!1
+                    if(tokens[i][1])// !1
                     {
                         cmd.type = "err_num_pipe";
                         cmd.num_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
-                    else//!
+                    else// !
                     {
                         cmd.type = "err_pipe";
                     }
@@ -289,13 +304,13 @@ vector <command> parse_line(string line)
                             if(tokens[i+1][0] == '>')
                             {
                                 is_in_usrpipe = 0;
-                                if(tokens[i+1][1])//<1 >2
+                                if(tokens[i+1][1])// <1 >2
                                 {
                                     cmd.type = "in_out_user_pipe";
                                     cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
                                     cmd.out_ust_id = stoi(tokens[i+1].substr(1, string::npos));
                                 }
-                                else//<1 > file
+                                else// <1 > file
                                 {
                                     cmd.type = "in_file_user_pipe";
                                     cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
@@ -309,13 +324,13 @@ vector <command> parse_line(string line)
                             else if(tokens[i+1][0] == '|')
                             {
                                 is_in_usrpipe = 0;
-                                if(tokens[i+1][1])//<1 |2
+                                if(tokens[i+1][1])// <1 |2
                                 {
                                     cmd.type = "in_num_pipe";
                                     cmd.num_pipe = stoi(tokens[i+1].substr(1, string::npos));
                                     cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
                                 }
-                                else//<1 |
+                                else// <1 |
                                 {
                                     cmd.type = "in_pipe_user_pipe";
                                     cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
@@ -325,7 +340,7 @@ vector <command> parse_line(string line)
                                 break;
                             }
                         }
-                        if(is_in_usrpipe)//<1
+                        if(is_in_usrpipe)// <1
                         {
                             cmd.type = "in_user_pipe";
                             cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
@@ -379,7 +394,8 @@ void childHandler(int signo)
 }
 
 int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_table,
-                    string &line, vector <connection_info> &connect_info_table)
+                    string &line, vector <connection_info> &connect_info_table,
+                    vector <vector <user_pipe>> &usr_pipe_table)
 {
     int saved_stdout = dup(STDOUT_FILENO);
     // string line;
@@ -478,6 +494,10 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         else if(cmd_pack[i].type == "file_pipe")
         {
             stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
+        }
+        else if(cmd_pack[i].type == "out_in_user_pipe")
+        {
+            //---TODO--
         }
         //--------------------------------------------------
 
@@ -599,6 +619,16 @@ int main(int argc, char *argv[])
     puts("Waiting for connections ...");   
     
     vector <connection_info> connect_info_table;
+    
+    vector <vector <user_pipe>> usr_pipe_table(30);
+    for(int i = 0; i < 30; i++)// Initialize usr_pipe_table (i to j usr_pipe)
+    {
+        for(int j = 0; j < 30; j++)
+        {
+            usr_pipe_table[i][j].in_fd = -1;
+            usr_pipe_table[i][j].out_fd = -1;
+        }
+    }
 
     while(1)   
     {   
@@ -733,7 +763,7 @@ int main(int argc, char *argv[])
                     //printf("READ: %s \n", line.c_str());
                     exe_shell_cmd(sd, connect_info_table[cmdno_table_idx].cmd_no,
                                  connect_info_table[cmdno_table_idx].numpipe_table, 
-                                 line, connect_info_table);
+                                 line, connect_info_table, usr_pipe_table);
                     send(sd , "% " , 2 , 0);
                 }   
             }   
