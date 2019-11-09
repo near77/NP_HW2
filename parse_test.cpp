@@ -77,10 +77,40 @@ vector <command> parse_line(string line)
             {
                 if(tokens[i] == "tell" || tokens[i] == "yell")
                 {
-                    for(i; i < tokens.size(); i++)
+                    if(tokens[i] == "tell")
                     {
                         cmd.args.push_back(tokens[i]);
+                        cmd.args.push_back(tokens[i+1]);
+                        for(int tmp_idx = 0; tmp_idx < (int)temp.length(); tmp_idx++)
+                        {
+                            if(temp.substr(tmp_idx, tmp_idx+4) == "tell")
+                            {
+                                if(isdigit(temp[tmp_idx+6]))
+                                {
+                                    cmd.args.push_back(temp.substr(tmp_idx+8, (int)temp.length()));
+                                }
+                                else
+                                {
+                                    cmd.args.push_back(temp.substr(tmp_idx+7, (int)temp.length()));
+                                }
+                                break;
+                            }
+                        }
                     }
+                    else
+                    {
+                        cmd.args.push_back(tokens[i]);
+                        for(int tmp_idx = 0; tmp_idx < (int)temp.length(); tmp_idx++)
+                        {
+                            if(temp.substr(tmp_idx, tmp_idx+4) == "yell")
+                            {
+                                cmd.args.push_back(temp.substr(tmp_idx+5, (int)temp.length()));
+                                break;
+                            }
+                        }
+                    }
+                    
+                    i = tokens.size();
                     break;
                 }
                 if(tokens[i][0] == '|')//pipe or num pipe
@@ -245,6 +275,10 @@ void shell_loop()
         {
             printf("cmd: %s\n", cmd_pack[i].args[0].c_str());
             printf("cmd_type: %s\n", cmd_pack[i].type.c_str());
+            for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size();tmp_idx++)
+            {
+                printf("args[%d]: %s\n", tmp_idx, cmd_pack[i].args[tmp_idx].c_str());
+            }
             cmd_no++;
         }
     }
