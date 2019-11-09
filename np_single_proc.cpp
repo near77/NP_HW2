@@ -22,8 +22,8 @@ struct command
     string type;
     string file;
     int num_pipe;
-    int in_ust_id;
-    int out_ust_id;
+    int in_usr_id;
+    int out_usr_id;
 };
 
 struct number_pipe
@@ -177,7 +177,8 @@ void yell(vector <string> args, vector <connection_info> connect_info_table, int
     }
 }
 
-int check_builtin(vector <string> args, vector <connection_info> &connect_info_table, int socket_fd)
+int check_builtin(vector <string> args, vector <connection_info> &connect_info_table, int socket_fd,
+                    vector <int> &client_socket, int client_socket_idx)
 {
     int connect_info_idx = -1;
     for(int i = 0; i < connect_info_table.size(); i++)
@@ -190,7 +191,21 @@ int check_builtin(vector <string> args, vector <connection_info> &connect_info_t
     }
     int is_builtin = 1;
     if(args[0] == "printenv"){printenv(args, socket_fd);}
-    else if(args[0] == "exit"){exit(0);}
+    else if(args[0] == "exit")
+    {
+        client_socket[client_socket_idx] = 0;
+        for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+        {
+            char tmp[50];
+            sprintf(tmp, "*** User '%s' left. ***\n", connect_info_table[connect_info_idx].user_name.c_str());
+            //if(connect_info_table[info_idx].socket_fd != socket_fd)
+            
+            write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp));
+            
+        }
+        connect_info_table.erase(connect_info_table.begin()+connect_info_idx);
+        close(socket_fd);
+    }
     else if(args[0] == "setenv")
     {
         setenv(args[1].c_str(), args[2].c_str(), 1);
@@ -273,27 +288,27 @@ vector <command> parse_line(string line)
                             {
                                 is_out_usrpipe = 0;
                                 cmd.type = "in_out_user_pipe";
-                                cmd.in_ust_id = stoi(tokens[i+1].substr(1, string::npos));
-                                cmd.out_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                cmd.in_usr_id = stoi(tokens[i+1].substr(1, string::npos));
+                                cmd.out_usr_id = stoi(tokens[i].substr(1, string::npos));
                                 i++;
                             }
                         }
                         if(is_out_usrpipe)// >1
                         {
                             cmd.type = "out_user_pipe";
-                            cmd.out_ust_id = stoi(tokens[i].substr(1, string::npos));
+                            cmd.out_usr_id = stoi(tokens[i].substr(1, string::npos));
                         }
                     }
                     else
                     {
                         int is_in_file_pipe = 0;
-                        if(i + 1 < tokens.size())// > file <1
+                        if(i + 2 < tokens.size())
                         {
-                            if(tokens[i+1][0] == '<')
+                            if(tokens[i+2][0] == '<')// > file <1
                             {
                                 is_in_file_pipe = 1;
                                 cmd.type = "in_file_user_pipe";
-                                cmd.in_ust_id = stoi(tokens[i+1].substr(1, string::npos));
+                                cmd.in_usr_id = stoi(tokens[i+2].substr(1, string::npos));
                                 cmd.file = tokens[i+1];
                                 i++;
                             }
@@ -335,13 +350,13 @@ vector <command> parse_line(string line)
                                 if(tokens[i+1][1])// <1 >2
                                 {
                                     cmd.type = "in_out_user_pipe";
-                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
-                                    cmd.out_ust_id = stoi(tokens[i+1].substr(1, string::npos));
+                                    cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
+                                    cmd.out_usr_id = stoi(tokens[i+1].substr(1, string::npos));
                                 }
                                 else// <1 > file
                                 {
                                     cmd.type = "in_file_user_pipe";
-                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                    cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
                                     cmd.file = tokens[i+2];
                                     i++;
                                 }
@@ -354,14 +369,14 @@ vector <command> parse_line(string line)
                                 is_in_usrpipe = 0;
                                 if(tokens[i+1][1])// <1 |2
                                 {
-                                    cmd.type = "in_num_pipe";
+                                    cmd.type = "in_numpipe_user_pipe";
                                     cmd.num_pipe = stoi(tokens[i+1].substr(1, string::npos));
-                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                    cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
                                 }
                                 else// <1 |
                                 {
                                     cmd.type = "in_pipe_user_pipe";
-                                    cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                                    cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
                                 }
                                 i++;
                                 i++;
@@ -371,7 +386,7 @@ vector <command> parse_line(string line)
                         if(is_in_usrpipe)// <1
                         {
                             cmd.type = "in_user_pipe";
-                            cmd.in_ust_id = stoi(tokens[i].substr(1, string::npos));
+                            cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
                             i++;
                             break;
                         }
@@ -423,7 +438,8 @@ void childHandler(int signo)
 
 int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_table,
                     string &line, vector <connection_info> &connect_info_table,
-                    vector <vector <user_pipe> > &usr_pipe_table)
+                    vector <vector <user_pipe> > &usr_pipe_table, 
+                    vector <int> &client_socket, int client_socket_idx)
 {
     // int saved_stdout = dup(STDOUT_FILENO);
 
@@ -463,7 +479,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
     {
         //--Check builtin--------------------
         int is_builtin = 0;
-        is_builtin = check_builtin(cmd_pack[i].args, connect_info_table, socket_fd);
+        is_builtin = check_builtin(cmd_pack[i].args, connect_info_table, socket_fd, client_socket, client_socket_idx);
         if(is_builtin)
         {
             cmd_no++;
@@ -548,52 +564,112 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         else if(cmd_pack[i].type == "in_out_user_pipe")
         {
             int err_flag = 0;
-            if(usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd == -1)
+
+            if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
                 //---write error-------------------
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***", 
-                        cmd_pack[i].in_ust_id,current_usr_id);
+                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                        cmd_pack[i].in_usr_id,current_usr_id);
                 write(socket_fd, tmp, strlen(tmp));
                 err_flag = 1;
             }
             else
             {
                 is_usr_target = 1;
-                stdin_fd = usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd;// target to current (in_fd = read end)
+                stdin_fd = usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd;// target to current (in_fd = read end)
             
-                close(usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].out_fd);
-                usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd = -1;
-                usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].out_fd = -1;
+                close(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd);
+                usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd = -1;
+                usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd = -1;
             }
-            if(usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].in_fd == -1)
+
+
+            if(usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd == -1)
             {
                 int fd[2];
                 pipe(fd);// open a new pipe for target user
-                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].in_fd = fd[0];//update usr pipe table
-                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].out_fd = fd[1];
-                stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].out_fd;
+                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
+                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
+                stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
             }
             else
             {
                 //---write error-------------------
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***", 
-                        current_usr_id,cmd_pack[i].out_ust_id);
+                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***\n", 
+                        current_usr_id,cmd_pack[i].out_usr_id);
                 write(socket_fd, tmp, strlen(tmp));
                 err_flag = 1;
             }
-            cmd_no++;
-            continue;
+
+
+            if(err_flag)
+            {
+                cmd_no++;
+                continue;
+            }
+            else
+            {
+                string sender_name = "";
+                for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(connect_info_table[tmp_idx].user_id == cmd_pack[i].in_usr_id)
+                    {
+                        sender_name = connect_info_table[tmp_idx].user_name;
+                    }
+                }
+                for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+                {
+                    char tmp[50];
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                            connect_info_table[connect_info_idx].user_name.c_str(),
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                    //if(connect_info_table[info_idx].socket_fd != socket_fd)
+                    
+                    write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
+                }
+
+
+                string receiver_name = "";
+                for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(connect_info_table[tmp_idx].user_id == cmd_pack[i].out_usr_id)
+                    {
+                        receiver_name = connect_info_table[tmp_idx].user_name;
+                    }
+                }
+                for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+                {
+                    string cmd = "";
+                    for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
+                    {
+                        cmd += cmd_pack[i].args[tmp_idx];
+                        cmd += " ";
+                    }
+                    cmd += ">";
+                    cmd += to_string(cmd_pack[i].out_usr_id);
+                    char tmp[100];
+                    sprintf(tmp, "*** %s (#%d) just piped '%s' to %s (#%d) ***\n", 
+                            connect_info_table[connect_info_idx].user_name.c_str(),
+                            current_usr_id, cmd.c_str(), receiver_name.c_str(),
+                            cmd_pack[i].out_usr_id);
+                    //if(connect_info_table[info_idx].socket_fd != socket_fd)
+                    
+                    write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
+                }
+            }
+            
         }
         else if(cmd_pack[i].type == "in_file_user_pipe")
         {
-            if(usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd == -1)
+            printf("Parse correct\n");
+            if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
                 //--write error message------------
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***", 
-                        cmd_pack[i].in_ust_id,current_usr_id);
+                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                        cmd_pack[i].in_usr_id,current_usr_id);
                 write(socket_fd, tmp, strlen(tmp));
                 cmd_no++;
                 continue;
@@ -601,28 +677,74 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             else
             {
                 is_usr_target = 1;
-                stdin_fd = usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd;// target to current (in_fd = read end)
-                close(usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].out_fd);
-                usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd = -1;
-                usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].out_fd = -1;
+                stdin_fd = usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd;// target to current (in_fd = read end)
+                close(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd);
+                usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd = -1;
+                usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd = -1;
                 stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
+                
+                string sender_name = "";
+                for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(connect_info_table[tmp_idx].user_id == cmd_pack[i].in_usr_id)
+                    {
+                        sender_name = connect_info_table[tmp_idx].user_name;
+                    }
+                }
+                for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+                {
+                    char tmp[50];
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                            connect_info_table[connect_info_idx].user_name.c_str(),
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                    //if(connect_info_table[info_idx].socket_fd != socket_fd)
+                    
+                    write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
+                }
             }
         }
         else if(cmd_pack[i].type == "out_user_pipe")
         {
-            if(usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].in_fd == -1)
+            if(usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd == -1)
             {
                 int fd[2];
                 pipe(fd);// open a new pipe for target user
-                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].in_fd = fd[0];//update usr pipe table
-                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].out_fd = fd[1];
-                stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_ust_id)-1].out_fd;
+                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
+                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
+                stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
+                string receiver_name = "";
+                for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(connect_info_table[tmp_idx].user_id == cmd_pack[i].out_usr_id)
+                    {
+                        receiver_name = connect_info_table[tmp_idx].user_name;
+                    }
+                }
+                for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+                {
+                    string cmd = "";
+                    for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
+                    {
+                        cmd += cmd_pack[i].args[tmp_idx];
+                        cmd += " ";
+                    }
+                    cmd += ">";
+                    cmd += to_string(cmd_pack[i].out_usr_id);
+                    char tmp[100];
+                    sprintf(tmp, "*** %s (#%d) just piped '%s' to %s (#%d) ***\n", 
+                            connect_info_table[connect_info_idx].user_name.c_str(),
+                            current_usr_id, cmd.c_str(), receiver_name.c_str(),
+                            cmd_pack[i].out_usr_id);
+                    //if(connect_info_table[info_idx].socket_fd != socket_fd)
+                    
+                    write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
+                }
             }
             else
             {
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***", 
-                        current_usr_id,cmd_pack[i].out_ust_id);
+                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***\n", 
+                        current_usr_id,cmd_pack[i].out_usr_id);
                 write(socket_fd, tmp, strlen(tmp));
                 cmd_no++;
                 continue;
@@ -630,11 +752,11 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         }
         else if(cmd_pack[i].type == "in_user_pipe")
         {
-            if(usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd == -1)
+            if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***", 
-                        cmd_pack[i].in_ust_id,current_usr_id);
+                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                        cmd_pack[i].in_usr_id,current_usr_id);
                 write(socket_fd, tmp, strlen(tmp));
                 cmd_no++;
                 continue;
@@ -642,10 +764,31 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             else
             {
                 is_usr_target = 1;
-                stdin_fd = usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].in_fd;// target to current (in_fd = read end)
-                close(usr_pipe_table[(cmd_pack[i].in_ust_id)-1][current_usr_id-1].out_fd);
+                stdin_fd = usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd;// target to current (in_fd = read end)
+                close(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd);
+                usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd = -1;
+                usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd = -1;
+                string sender_name = "";
+                for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(connect_info_table[tmp_idx].user_id == cmd_pack[i].in_usr_id)
+                    {
+                        sender_name = connect_info_table[tmp_idx].user_name;
+                    }
+                }
+                for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+                {
+                    char tmp[50];
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                            connect_info_table[connect_info_idx].user_name.c_str(),
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                    //if(connect_info_table[info_idx].socket_fd != socket_fd)
+                    
+                    write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
+                }
             }
         }
+        //--TODO in_numpipe_user_pipe && in_pipe_user_pipe
         
         //--------------------------------------------------
 
@@ -694,8 +837,9 @@ int main(int argc, char *argv[])
 {
     setenv("PATH", "bin:.", 1);
     int id = 1;
-    int opt = 1;   
-    int master_socket , addrlen , new_socket , client_socket[30] ,  
+    int opt = 1;
+    vector <int> client_socket(30);
+    int master_socket , addrlen , new_socket ,  
           max_clients = 30 , activity, i , valread , sd;   
     int max_sd;   
     struct sockaddr_in address;   
@@ -762,7 +906,7 @@ int main(int argc, char *argv[])
     vector <connection_info> connect_info_table;
     vector <user_pipe> one_dim_usr_pipe(30);
     vector <vector <user_pipe> > usr_pipe_table;
-    for(int i = 0; i < 30; i++)// Initialize usr_pipe_table (i to j usr_pipe)
+    for(int usr_id = 0; usr_id < 30; usr_id++)// Initialize usr_pipe_table (i to j usr_pipe)
     {
         usr_pipe_table.push_back(one_dim_usr_pipe);
     }
@@ -822,6 +966,23 @@ int main(int argc, char *argv[])
                      new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
             
             //--Record every socket's cmd no------------------
+            for(int id_num = 1; id_num <= 30; id_num ++)
+            {
+                int id_been_used = 0;
+                for(int table_idx = 0; table_idx < connect_info_table.size(); table_idx++)
+                {
+                    if(id_num == connect_info_table[table_idx].user_id)
+                    {
+                        id_been_used = 1;
+                        break;
+                    }
+                }
+                if(!id_been_used)
+                {
+                    id = id_num;
+                    break;
+                }
+            }
             struct connection_info new_connect_info;
             new_connect_info.socket_fd = new_socket;
             new_connect_info.cmd_no = 1;
@@ -833,7 +994,16 @@ int main(int argc, char *argv[])
             env["PATH"] = "bin:.";
             new_connect_info.env = env;
             connect_info_table.push_back(new_connect_info);
-            id ++;
+            for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+            {
+                char tmp[100];
+                sprintf(tmp, "*** User '%s' entered from %s. ***", 
+                        new_connect_info.user_name.c_str(),new_connect_info.ip_port.c_str());
+                //if(connect_info_table[info_idx].socket_fd != new_socket)
+                
+                write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp));
+                
+            }
             //------------------------------------------------
 
             string wellcome_message = message;
@@ -872,10 +1042,10 @@ int main(int argc, char *argv[])
             {   
                 //Check if it was for closing , and also read the  
                 //incoming message
-                int cmdno_table_idx = 0;
-                for(cmdno_table_idx = 0; cmdno_table_idx < connect_info_table.size(); cmdno_table_idx++)
+                int connect_info_idx = 0;
+                for(connect_info_idx = 0; connect_info_idx < connect_info_table.size(); connect_info_idx++)
                 {
-                    if (sd == connect_info_table[cmdno_table_idx].socket_fd)
+                    if (sd == connect_info_table[connect_info_idx].socket_fd)
                     {
                         break;
                     }
@@ -889,8 +1059,8 @@ int main(int argc, char *argv[])
                           inet_ntoa(address.sin_addr) , ntohs(address.sin_port));   
                         
                     //Close the socket and mark as 0 in list for reuse
-                    connect_info_table.erase(connect_info_table.begin()+cmdno_table_idx);//Erase socket info  
-                    close(sd);   
+                    connect_info_table.erase(connect_info_table.begin()+connect_info_idx);//Erase socket info  
+                    close(sd);
                     client_socket[i] = 0;   
                 }   
                 //Echo back the message that came in  
@@ -901,15 +1071,14 @@ int main(int argc, char *argv[])
                     buffer[valread] = '\0';
                     string line(buffer);
                     //printf("READ: %s \n", line.c_str());
-                    exe_shell_cmd(sd, connect_info_table[cmdno_table_idx].cmd_no,
-                                 connect_info_table[cmdno_table_idx].numpipe_table, 
-                                 line, connect_info_table, usr_pipe_table);
+                    exe_shell_cmd(sd, connect_info_table[connect_info_idx].cmd_no,
+                                 connect_info_table[connect_info_idx].numpipe_table, 
+                                 line, connect_info_table, usr_pipe_table, client_socket,
+                                 i);
                     send(sd , "% " , 2 , 0);
                 }   
             }   
         }  
     }
-    
-    // shell_loop();
     return 0;
 }

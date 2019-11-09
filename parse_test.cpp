@@ -47,6 +47,14 @@ struct number_pipe
 
 vector <command> parse_line(string line)
 {
+    string temp = "";
+    for(int i = 0; i < line.length(); i++)
+    {
+        fflush(stdout);
+        if(line[i] != '\r' && line[i] != '\n'){temp += line[i];}
+    }
+    line = temp;
+
     //--Split with space-----------------------------
     string const deli{' '};
     vector <string> tokens;
@@ -67,14 +75,22 @@ vector <command> parse_line(string line)
         {
             for(i; i < tokens.size(); i++)
             {
+                if(tokens[i] == "tell" || tokens[i] == "yell")
+                {
+                    for(i; i < tokens.size(); i++)
+                    {
+                        cmd.args.push_back(tokens[i]);
+                    }
+                    break;
+                }
                 if(tokens[i][0] == '|')//pipe or num pipe
                 {
-                    if(tokens[i][1])//|1
+                    if(tokens[i][1])// |1
                     {
                         cmd.type = "num_pipe";
                         cmd.num_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
-                    else//|
+                    else// |
                     {
                         cmd.type = "pipe";
                     }
@@ -88,16 +104,16 @@ vector <command> parse_line(string line)
                         int is_out_usrpipe = 1;
                         if(i + 1 < tokens.size())
                         {
-                            if(tokens[i+1][0] == '<')//>1 <2
+                            if(tokens[i+1][0] == '<')// >1 <2
                             {
                                 is_out_usrpipe = 0;
-                                cmd.type = "out_in_user_pipe";
+                                cmd.type = "in_out_user_pipe";
                                 cmd.in_usr_id = stoi(tokens[i+1].substr(1, string::npos));
                                 cmd.out_usr_id = stoi(tokens[i].substr(1, string::npos));
                                 i++;
                             }
                         }
-                        if(is_out_usrpipe)//>1
+                        if(is_out_usrpipe)// >1
                         {
                             cmd.type = "out_user_pipe";
                             cmd.out_usr_id = stoi(tokens[i].substr(1, string::npos));
@@ -105,8 +121,23 @@ vector <command> parse_line(string line)
                     }
                     else
                     {
-                        cmd.type = "file_pipe";
-                        cmd.file = tokens[i+1];
+                        int is_in_file_pipe = 0;
+                        if(i + 2 < tokens.size())
+                        {
+                            if(tokens[i+2][0] == '<')// > file <1
+                            {
+                                is_in_file_pipe = 1;
+                                cmd.type = "in_file_user_pipe";
+                                cmd.in_usr_id = stoi(tokens[i+2].substr(1, string::npos));
+                                cmd.file = tokens[i+1];
+                                i++;
+                            }
+                        }
+                        if(!is_in_file_pipe)// > file
+                        {
+                            cmd.type = "file_pipe";
+                            cmd.file = tokens[i+1];
+                        }
                         i++;
                     }
                     i++;
@@ -114,12 +145,12 @@ vector <command> parse_line(string line)
                 }
                 else if(tokens[i][0] == '!')//err pipe or err num pipe
                 {
-                    if(tokens[i][1])//!1
+                    if(tokens[i][1])// !1
                     {
                         cmd.type = "err_num_pipe";
                         cmd.num_pipe = stoi(tokens[i].substr(1, string::npos));
                     }
-                    else//!
+                    else// !
                     {
                         cmd.type = "err_pipe";
                     }
@@ -136,13 +167,13 @@ vector <command> parse_line(string line)
                             if(tokens[i+1][0] == '>')
                             {
                                 is_in_usrpipe = 0;
-                                if(tokens[i+1][1])//<1 >2
+                                if(tokens[i+1][1])// <1 >2
                                 {
                                     cmd.type = "in_out_user_pipe";
                                     cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
                                     cmd.out_usr_id = stoi(tokens[i+1].substr(1, string::npos));
                                 }
-                                else//<1 > file
+                                else// <1 > file
                                 {
                                     cmd.type = "in_file_user_pipe";
                                     cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
@@ -156,13 +187,13 @@ vector <command> parse_line(string line)
                             else if(tokens[i+1][0] == '|')
                             {
                                 is_in_usrpipe = 0;
-                                if(tokens[i+1][1])//<1 |2
+                                if(tokens[i+1][1])// <1 |2
                                 {
                                     cmd.type = "in_num_pipe";
                                     cmd.num_pipe = stoi(tokens[i+1].substr(1, string::npos));
                                     cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
                                 }
-                                else//<1 |
+                                else// <1 |
                                 {
                                     cmd.type = "in_pipe_user_pipe";
                                     cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
@@ -172,7 +203,7 @@ vector <command> parse_line(string line)
                                 break;
                             }
                         }
-                        if(is_in_usrpipe)//<1
+                        if(is_in_usrpipe)// <1
                         {
                             cmd.type = "in_user_pipe";
                             cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
