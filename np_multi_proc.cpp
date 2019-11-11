@@ -21,7 +21,7 @@ string message =
 ** Welcome to the information server **\n\
 ***************************************\n\
 *** User ’(no name)’ entered from ";
-
+int client_id = -1;
 
 //-----Built in command-------------------------------
 void printenv(vector <string> args)
@@ -30,12 +30,67 @@ void printenv(vector <string> args)
     if(env!=""){printf("%s\n", env.c_str());}
 }
 
+struct client_share_memory
+{
+    int lock;
+    string client_name[30];
+    int client_pid[30];
+    int usr_pipe_table[30][30];
+    string tell_table[30][30];
+    client_share_memory()
+    {
+        lock = 0;
+        for(int i = 0; i < 30; i++)
+        {
+            client_name[i] = "(no name)";
+            client_pid[i] = -1;
+            for(int j = 0; j < 30; j++)
+            {
+                usr_pipe_table[i][j] = 0;
+                tell_table[i][j] = "";
+            }
+        }
+    }
+};
+
+client_share_memory * share_mem = (client_share_memory*)mmap(NULL,
+                                    sizeof(client_share_memory)*30, 
+                                    PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED,
+                                    -1, 0);
+
+void tell(vector <string> args)
+{
+    //-----LOCK--------------------
+    share_mem -> tell_table[client_id-1][stoi(args[1])-1] = args[2];
+    kill(share_mem -> client_pid[stoi(args[1])-1], SIGUSR1);
+}
+
+void yell(vector <string> args)
+{
+    //-----LOCK--------------------
+    for(int i = 0; i < 30; i++)
+    {
+        share_mem -> tell_table[client_id-1][i] = args[1];
+        kill(share_mem -> client_pid[i], SIGUSR1);
+    }
+}
+
 int check_builtin(vector <string> args)
 {
     int is_builtin = 1;
     if(args[0] == "printenv"){printenv(args);}
     else if(args[0] == "exit")
     {
+        //-----LOCK--------------------
+        share_mem -> client_pid[client_id-1] = -1;
+        share_mem -> client_name[client_id-1] = "(no name)";
+        for(int i = 0; i < 30; i++)
+        {
+            share_mem->tell_table[i][client_id-1] = "";
+            share_mem->tell_table[client_id-1][i] = "";
+            share_mem->usr_pipe_table[i][client_id-1] = 0;
+            share_mem->usr_pipe_table[client_id-1][i] = 0;
+        }
         exit_flag = 1;
     }
     else if(args[0] == "setenv"){setenv(args[1].c_str(), args[2].c_str(), 1);}
@@ -44,13 +99,6 @@ int check_builtin(vector <string> args)
 }
 //----------------------------------------------------
 
-struct client_share_memory
-{
-    string client_name;
-    int client_pid;
-    int usr_pipe_table[30];
-    string tell_table[30];
-};
 
 
 struct command
@@ -311,6 +359,17 @@ void childHandler(int signo)
     }
 }
 
+void tell_handler(int signo)
+{
+    for(int i = 0; i < 30; i++)
+    {
+        if(share_mem -> tell_table[i][client_id-1] != "" )
+        {
+            printf("%s\n", share_mem -> tell_table[i][client_id-1]);
+            share_mem -> tell_table[i][client_id-1] = "";
+        }
+    }
+}
 
 
 void shell_loop(int socket_fd)
@@ -325,6 +384,7 @@ void shell_loop(int socket_fd)
     int cmd_no = 1;
     while(true)
     {
+        signal(SIGUSR1, tell_handler);
         printf("%% ");
         getline(cin, line);
         if(line.empty()){continue;}
@@ -415,7 +475,7 @@ void shell_loop(int socket_fd)
             }
             else if(cmd_pack[i].type == "in_out_user_pipe")
             {
-
+                
             }
             else if(cmd_pack[i].type == "in_file_user_pipe")
             {
@@ -438,7 +498,7 @@ void shell_loop(int socket_fd)
                 
             }
             //-----------------------------------
-
+            signal(SIGCHLD, childHandler);
             pid_t pid = fork();
             if(pid == 0)
             {
@@ -553,11 +613,20 @@ int main(int argc, char *argv[])
             if(pid == 0)
             {
                 shell_loop(new_socket);
-                printf("EXIT\n");
                 break;
             }
             else
             {
+                //-----LOCK--------------------
+                for(int i = 0; i < 30; i++)
+                {
+                    if(share_mem -> client_pid[i] == -1)
+                    {
+                        share_mem -> client_pid[i] = pid;
+                        client_id = i+1;
+                        break;
+                    }
+                }
                 close(new_socket);
             }
         }

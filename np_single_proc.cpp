@@ -1069,6 +1069,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
 
 
         //--Fork child to execute the command---------------
+        signal(SIGCHLD, childHandler);
         pid_t pid = fork();
         if(pid == 0)
         {
