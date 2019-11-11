@@ -617,6 +617,8 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
                         cmd_pack[i].in_usr_id,current_usr_id);
                 write(socket_fd, tmp, strlen(tmp));
+                int devNull = open("/dev/null", O_WRONLY);
+                stdin_fd = devNull;
                 err_flag = 1;
             }
             else
@@ -629,7 +631,6 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd = -1;
             }
 
-
             if(usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd == -1)
             {
                 int fd[2];
@@ -641,9 +642,26 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             else
             {
                 //---write error-------------------
+                int out_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(cmd_pack[i].out_usr_id == connect_info_table[tmp_idx].user_id)
+                    {
+                        out_usr_exist = 1;
+                        break;
+                    }
+                }
+
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***\n", 
+                if(out_usr_exist)
+                {
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***\n", 
                         current_usr_id,cmd_pack[i].out_usr_id);
+                }
+                else
+                {
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                }
                 write(socket_fd, tmp, strlen(tmp));
                 err_flag = 1;
             }
@@ -712,10 +730,29 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
                 //--write error message------------
+                int in_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(cmd_pack[i].in_usr_id == connect_info_table[tmp_idx].user_id)
+                    {
+                        in_usr_exist = 1;
+                        break;
+                    }
+                }
+
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
-                        cmd_pack[i].in_usr_id,current_usr_id);
+                if(in_usr_exist)
+                {
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id,current_usr_id);
+                }
+                else
+                {
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                }
                 write(socket_fd, tmp, strlen(tmp));
+                int devNull = open("/dev/null", O_WRONLY);
+                stdin_fd = devNull;
                 cmd_no++;
                 continue;
             }
@@ -787,9 +824,27 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             }
             else
             {
+                int out_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(cmd_pack[i].out_usr_id == connect_info_table[tmp_idx].user_id)
+                    {
+                        out_usr_exist = 1;
+                        break;
+                    }
+                }
+
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***\n", 
+                if(out_usr_exist)
+                {
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***\n", 
                         current_usr_id,cmd_pack[i].out_usr_id);
+                }
+                else
+                {
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                }
+                
                 write(socket_fd, tmp, strlen(tmp));
                 cmd_no++;
                 continue;
@@ -799,10 +854,29 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         {
             if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
+                int in_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(cmd_pack[i].in_usr_id == connect_info_table[tmp_idx].user_id)
+                    {
+                        in_usr_exist = 1;
+                        break;
+                    }
+                }
+
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
-                        cmd_pack[i].in_usr_id,current_usr_id);
+                if(in_usr_exist)
+                {
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id,current_usr_id);
+                }
+                else
+                {
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                }
                 write(socket_fd, tmp, strlen(tmp));
+                int devNull = open("/dev/null", O_WRONLY);
+                stdin_fd = devNull;
                 cmd_no++;
                 continue;
             }
@@ -837,10 +911,30 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         {
             if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
+                int in_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(cmd_pack[i].in_usr_id == connect_info_table[tmp_idx].user_id)
+                    {
+                        in_usr_exist = 1;
+                        break;
+                    }
+                }
+
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
-                        cmd_pack[i].in_usr_id,current_usr_id);
+                if(in_usr_exist)
+                {
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id,current_usr_id);
+                }
+                else
+                {
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                }
+            
                 write(socket_fd, tmp, strlen(tmp));
+                int devNull = open("/dev/null", O_WRONLY);
+                stdin_fd = devNull;
                 cmd_no++;
                 continue;
             }
@@ -896,10 +990,29 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         {
             if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
+                int in_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(cmd_pack[i].in_usr_id == connect_info_table[tmp_idx].user_id)
+                    {
+                        in_usr_exist = 1;
+                        break;
+                    }
+                }
+
                 char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
-                        cmd_pack[i].in_usr_id,current_usr_id);
+                if(in_usr_exist)
+                {
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id,current_usr_id);
+                }
+                else
+                {
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                }
                 write(socket_fd, tmp, strlen(tmp));
+                int devNull = open("/dev/null", O_WRONLY);
+                stdin_fd = devNull;
                 cmd_no++;
                 continue;
             }
@@ -1230,8 +1343,33 @@ int main(int argc, char *argv[])
                 {   
                     //set the string terminating NULL byte on the end  
                     //of the data read
-                    buffer[valread] = '\0';
-                    string line(buffer);
+                    string line = "";
+                    if(valread >= 1024)
+                    {
+                        string temp(buffer);
+                        line += temp;
+                        while(valread != 0)
+                        {
+                            valread = read( sd , buffer, 1024);
+                            if(valread < 1024)
+                            {
+                                buffer[valread] = '\0';
+                                line += string(buffer);
+                                break;
+                            }
+                            line += string(buffer);
+                        }
+                    }
+                    else
+                    {
+                        buffer[valread] = '\0';
+                        string temp(buffer);
+                        line += temp;   
+                    }
+                    
+                        
+                    // buffer[valread] = '\0';
+                    // string line(buffer);
                     //printf("READ: %s \n", line.c_str());
                     exe_shell_cmd(sd, connect_info_table[connect_info_idx].cmd_no,
                                  connect_info_table[connect_info_idx].numpipe_table, 

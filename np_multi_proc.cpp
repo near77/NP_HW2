@@ -11,9 +11,17 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/mman.h>
 
 using namespace std;
 int exit_flag = 0;
+string message = 
+"***************************************\n\
+** Welcome to the information server **\n\
+***************************************\n\
+*** User ’(no name)’ entered from ";
+
 
 //-----Built in command-------------------------------
 void printenv(vector <string> args)
@@ -29,13 +37,21 @@ int check_builtin(vector <string> args)
     else if(args[0] == "exit")
     {
         exit_flag = 1;
-        return is_builtin;
     }
     else if(args[0] == "setenv"){setenv(args[1].c_str(), args[2].c_str(), 1);}
     else{is_builtin = 0;}
     return is_builtin;
 }
 //----------------------------------------------------
+
+struct client_share_memory
+{
+    string client_name;
+    int client_pid;
+    int usr_pipe_table[30];
+    string tell_table[30];
+};
+
 
 struct command
 {
@@ -299,10 +315,6 @@ void childHandler(int signo)
 
 void shell_loop(int socket_fd)
 {
-    int old_infd = dup(STDIN_FILENO);
-    int old_outfd = dup(STDOUT_FILENO);
-    int old_errfd = dup(STDERR_FILENO);
-
     dup2(socket_fd, STDOUT_FILENO);
     dup2(socket_fd, STDIN_FILENO);
     dup2(socket_fd, STDERR_FILENO);
@@ -323,6 +335,7 @@ void shell_loop(int socket_fd)
             //--Check builtin--------------------
             int is_builtin = 0;
             is_builtin = check_builtin(cmd_pack[i].args);
+            printf("EXIT\n");
             if(is_builtin)
             {
                 if(exit_flag)
@@ -400,6 +413,30 @@ void shell_loop(int socket_fd)
             {
                 stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
             }
+            else if(cmd_pack[i].type == "in_out_user_pipe")
+            {
+
+            }
+            else if(cmd_pack[i].type == "in_file_user_pipe")
+            {
+                
+            }
+            else if(cmd_pack[i].type == "out_user_pipe")
+            {
+                
+            }
+            else if(cmd_pack[i].type == "in_user_pipe")
+            {
+                
+            }
+            else if(cmd_pack[i].type == "in_numpipe_user_pipe")
+            {
+                
+            }
+            else if(cmd_pack[i].type == "in_pipe_user_pipe")
+            {
+                
+            }
             //-----------------------------------
 
             pid_t pid = fork();
@@ -431,16 +468,16 @@ void shell_loop(int socket_fd)
             }
             cmd_no++;
         }
+        
         if(exit_flag)
         {
+            printf("EXIT\n");
             exit_flag = 0;
-            dup2(old_infd, STDIN_FILENO);
-            dup2(old_outfd, STDERR_FILENO);
-            dup2(old_errfd, STDERR_FILENO);
             //close(socket_fd);
             break;
         }
     }
+    printf("EXIT\n");
 }
 
 
@@ -498,10 +535,29 @@ int main(int argc, char *argv[])
         }
         else
         {
+            //------Send wellcome message------------
+            string wellcome_msg = message;
+            wellcome_msg += string(inet_ntoa(address.sin_addr));
+            wellcome_msg += ":";
+            wellcome_msg += to_string(ntohs(address.sin_port));
+            wellcome_msg += ". ***\n";
+            if(send(new_socket, wellcome_msg.c_str(), strlen(wellcome_msg.c_str()), 0) 
+                != strlen(wellcome_msg.c_str()))   
+            {   
+                perror("send");   
+            }
+            puts("Welcome message sent successfully"); 
+            //---------------------------------------
+
             pid_t pid = fork();
             if(pid == 0)
             {
                 shell_loop(new_socket);
+                printf("EXIT\n");
+                break;
+            }
+            else
+            {
                 close(new_socket);
             }
         }
