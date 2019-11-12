@@ -1192,7 +1192,7 @@ int main(int argc, char *argv[])
         //a message 
         string message = 
 "***************************************\n\
-** Welcome to the information server **\n\
+** Welcome to the information server. **\n\
 ***************************************\n\
 *** User ’(no name)’ entered from ";
         //clear the socket set  

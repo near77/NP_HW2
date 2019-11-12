@@ -1,0 +1,85 @@
+
+login1
+1| ****************************************
+1| ** Welcome to the information server. **
+1| ****************************************
+1| *** User '(no name)' entered from CGILAB/511. ***
+1| % 
+
+login2
+1| *** User '(no name)' entered from CGILAB/511. ***
+2| ****************************************
+2| ** Welcome to the information server. **
+2| ****************************************
+2| *** User '(no name)' entered from CGILAB/511. ***
+2| % 
+
+1 % printenv PATH
+1| bin:.
+1| % 
+
+1 % setenv PATH .
+1| % 
+
+1 % printenv PATH
+1| .
+1| % 
+
+2 % printenv PATH
+2| bin:.
+2| % 
+
+2 % ls -S | number |2
+2| % 
+
+2 % cat test.html |1
+2| % 
+
+1 % ls -S
+1| Unknown command: [ls].
+1| % 
+
+2 % cat
+2|    1 bin
+2|    2 user_pipe
+2|    3 test.html
+2| <!test.html>
+2| <TITLE>Test</TITLE>
+2| <BODY>This is a <b>test</b> program
+2| for ras.
+2| </BODY>
+2| % 
+
+1 % setenv PATH bin
+1| % 
+
+1 % printenv PATH
+1| bin
+1| % 
+
+2 % figlet Hello
+2|  _   _      _ _       
+2| | | | | ___| | | ___  
+2| | |_| |/ _ \ | |/ _ \ 
+2| |  _  |  __/ | | (_) |
+2| |_| |_|\___|_|_|\___/ 
+2|                       
+2| % 
+
+1 % figlet Hello
+1|  _   _      _ _       
+1| | | | | ___| | | ___  
+1| | |_| |/ _ \ | |/ _ \ 
+1| |  _  |  __/ | | (_) |
+1| |_| |_|\___|_|_|\___/ 
+1|                       
+1| % 
+
+logout1
+1| *** User '(no name)' left. ***
+2| *** User '(no name)' left. ***
+
+logout2
+2| *** User '(no name)' left. ***
+
+exit

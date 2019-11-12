@@ -18,7 +18,7 @@ using namespace std;
 int exit_flag = 0;
 string message = 
 "***************************************\n\
-** Welcome to the information server **\n\
+** Welcome to the information server. **\n\
 ***************************************\n\
 *** User ’(no name)’ entered from ";
 int client_id = -1;

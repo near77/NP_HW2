@@ -1,0 +1,6 @@
+login1
+1:removetag0 test.html |1
+1:number |1
+1:cat
+logout1
+exit
