@@ -490,7 +490,6 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     vector <vector <user_pipe> > &usr_pipe_table, 
                     vector <int> &client_socket, int client_socket_idx)
 {
-    cout << line << endl;
     // int saved_stdout = dup(STDOUT_FILENO);
     int connect_info_idx = -1;
     int current_usr_id = -1;
@@ -1103,7 +1102,6 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
 
             if(!lineEndsWithPipeN && (i == cmd_pack.size()-1))
             {
-                cout << "wait pipe\n";
                 int child_status;
                 waitpid(pid, &child_status, 0);
             }
