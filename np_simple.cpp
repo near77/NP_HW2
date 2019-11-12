@@ -190,11 +190,11 @@ void shell_loop(int socket_fd)
         cmd_pack = parse_line(line);
         for(int i = 0; i < cmd_pack.size(); i++)
         {
-            printf("CMD: %s\n", cmd_pack[i].args[0]);
-            for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
-            {
-                printf("ARGS: %s\n", cmd_pack[i].args[tmp_idx]);
-            }
+            // printf("CMD: %s\n", cmd_pack[i].args[0].c_str());
+            // for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
+            // {
+            //     printf("ARGS: %s\n", cmd_pack[i].args[tmp_idx].c_str());
+            // }
             //--Check builtin--------------------
             int is_builtin = 0;
             is_builtin = check_builtin(cmd_pack[i].args);
@@ -309,7 +309,6 @@ void shell_loop(int socket_fd)
         if(exit_flag)
         {
             exit_flag = 0;
-            close(socket_fd);
             break;
         }
     }
@@ -329,18 +328,15 @@ int main(int argc, char *argv[])
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) 
     { 
         perror("socket failed"); 
-        exit(EXIT_FAILURE); 
     } 
     
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) 
     { 
         perror("setsockopt"); 
-        exit(EXIT_FAILURE); 
     }
     if(argc < 2)
     {
         perror("In address not found");
-        exit(EXIT_FAILURE);
     }
     int PORT = atoi(argv[1]);
     address.sin_family = AF_INET; 
@@ -351,7 +347,6 @@ int main(int argc, char *argv[])
                                  sizeof(address))<0) 
     { 
         perror("bind failed"); 
-        exit(EXIT_FAILURE); 
     } 
     
     while(1)
@@ -359,19 +354,18 @@ int main(int argc, char *argv[])
         if (listen(server_fd, 3) < 0) 
         { 
             perror("listen"); 
-            exit(EXIT_FAILURE); 
         } 
-
+        printf("Waiting for connection.\n");
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
                        (socklen_t*)&addrlen))<0) 
         { 
             perror("accept"); 
-            exit(EXIT_FAILURE); 
         }
         else
         {
             shell_loop(new_socket);
             close(new_socket);
+            break;
         }
     }
     return 0;
