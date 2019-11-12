@@ -814,37 +814,55 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         {
             if(usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd == -1)
             {
-                int fd[2];
-                pipe(fd);// open a new pipe for target user
-                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
-                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
-                stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
-                string receiver_name = "";
-                for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
+                int out_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
                 {
-                    if(connect_info_table[tmp_idx].user_id == cmd_pack[i].out_usr_id)
+                    if(cmd_pack[i].out_usr_id == connect_info_table[tmp_idx].user_id)
                     {
-                        receiver_name = connect_info_table[tmp_idx].user_name;
+                        out_usr_exist = 1;
+                        break;
                     }
                 }
-                for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+
+                char tmp[100];
+                if(!out_usr_exist)
                 {
-                    string cmd = "";
-                    for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                }
+                else
+                {
+                    int fd[2];
+                    pipe(fd);// open a new pipe for target user
+                    usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
+                    usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
+                    stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
+                    string receiver_name = "";
+                    for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
                     {
-                        cmd += cmd_pack[i].args[tmp_idx];
-                        cmd += " ";
+                        if(connect_info_table[tmp_idx].user_id == cmd_pack[i].out_usr_id)
+                        {
+                            receiver_name = connect_info_table[tmp_idx].user_name;
+                        }
                     }
-                    cmd += ">";
-                    cmd += to_string(cmd_pack[i].out_usr_id);
-                    char tmp[100];
-                    sprintf(tmp, "*** %s (#%d) just piped '%s' to %s (#%d) ***\n", 
-                            connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, temp.c_str(), receiver_name.c_str(),
-                            cmd_pack[i].out_usr_id);
-                    //if(connect_info_table[info_idx].socket_fd != socket_fd)
-                    
-                    write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
+                    for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
+                    {
+                        string cmd = "";
+                        for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
+                        {
+                            cmd += cmd_pack[i].args[tmp_idx];
+                            cmd += " ";
+                        }
+                        cmd += ">";
+                        cmd += to_string(cmd_pack[i].out_usr_id);
+                        char tmp[100];
+                        sprintf(tmp, "*** %s (#%d) just piped '%s' to %s (#%d) ***\n", 
+                                connect_info_table[connect_info_idx].user_name.c_str(),
+                                current_usr_id, temp.c_str(), receiver_name.c_str(),
+                                cmd_pack[i].out_usr_id);
+                        //if(connect_info_table[info_idx].socket_fd != socket_fd)
+                        
+                        write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
+                    }
                 }
             }
             else
