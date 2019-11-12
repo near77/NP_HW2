@@ -247,7 +247,7 @@ void shell_loop()
                 stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
             }
             //-----------------------------------
-
+            signal(SIGCHLD, childHandler);
             pid_t pid = fork();
             if(pid == 0)
             {

@@ -365,7 +365,7 @@ void tell_handler(int signo)
     {
         if(share_mem -> tell_table[i][client_id-1] != "" )
         {
-            printf("%s\n", share_mem -> tell_table[i][client_id-1]);
+            printf("%s\n", share_mem -> tell_table[i][client_id-1].c_str());
             share_mem -> tell_table[i][client_id-1] = "";
         }
     }

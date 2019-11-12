@@ -275,10 +275,11 @@ void shell_loop()
         {
             printf("cmd: %s\n", cmd_pack[i].args[0].c_str());
             printf("cmd_type: %s\n", cmd_pack[i].type.c_str());
-            for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size();tmp_idx++)
+            for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
             {
                 printf("args[%d]: %s\n", tmp_idx, cmd_pack[i].args[tmp_idx].c_str());
             }
+            printf("numpipe: %d\n", cmd_pack[i].num_pipe);
             cmd_no++;
         }
     }

@@ -459,18 +459,19 @@ int execute_cmd(vector <string> args, int socket_fd)//Execute bin command
         exec_args[arg_count++] = strdup(args[x].c_str());
     }
     exec_args[arg_count++] = 0; // tell it when to stop!
-    printf("DBG msg3\n");
+    //printf("DBG msg3\n");
     int status = execvp(exec_args[0], exec_args);
-    printf("DBG msg4\n");
+    //printf("DBG msg4\n");
     if(status == -1)
     {
-        printf("DBG msg1\n");
+        //printf("DBG msg1\n");
         char tmp[100] = {0};
         strcat(tmp, "Unknown command: [");
         strcat(tmp, exec_args[0]);
         strcat(tmp, "].\n");
         write(socket_fd, tmp, strlen(tmp));
-        printf("DBG msg2\n");
+        //printf("DBG msg2\n");
+        exit(0);
     }
     return status;
 }
@@ -489,8 +490,8 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     vector <vector <user_pipe> > &usr_pipe_table, 
                     vector <int> &client_socket, int client_socket_idx)
 {
+    cout << line << endl;
     // int saved_stdout = dup(STDOUT_FILENO);
-
     int connect_info_idx = -1;
     int current_usr_id = -1;
     for(int i = 0; i < connect_info_table.size(); i++)
@@ -1102,8 +1103,9 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
 
             if(!lineEndsWithPipeN && (i == cmd_pack.size()-1))
             {
-                int status;
-                waitpid(pid, &status, 0);
+                cout << "wait pipe\n";
+                int child_status;
+                waitpid(pid, &child_status, 0);
             }
         }
         //---------------------------------------------------
@@ -1189,7 +1191,7 @@ int main(int argc, char *argv[])
     {
         usr_pipe_table.push_back(one_dim_usr_pipe);
     }
-    
+
     while(1)   
     {   
         //a message 
@@ -1221,14 +1223,16 @@ int main(int argc, char *argv[])
         }   
      
         //wait for an activity on one of the sockets , timeout is NULL ,  
-        //so wait indefinitely  
+        //so wait indefinitely 
+        
+        tryagain:
         activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);   
        
-        if ((activity < 0) && (errno!=EINTR))   
+        if ((activity < 0))   
         {   
-            printf("select error");   
-        }   
-             
+            perror("select error");   
+            goto tryagain;
+        }      
         //If something happened on the master socket ,  
         //then its an incoming connection  
         if (FD_ISSET(master_socket, &readfds))   
@@ -1370,8 +1374,7 @@ int main(int argc, char *argv[])
                         string temp(buffer);
                         line += temp;   
                     }
-                    
-                        
+                
                     // buffer[valread] = '\0';
                     // string line(buffer);
                     //printf("READ: %s \n", line.c_str());
@@ -1379,6 +1382,7 @@ int main(int argc, char *argv[])
                                  connect_info_table[connect_info_idx].numpipe_table, 
                                  line, connect_info_table, usr_pipe_table, client_socket,
                                  i);
+
                     send(sd , "% " , 2 , 0);
                 }   
             }   
