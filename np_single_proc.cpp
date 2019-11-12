@@ -524,7 +524,12 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
     {
         return 0;
     }
-    string temp = line;
+    string temp = "";
+    for(int i = 0; i < line.length(); i++)
+    {
+        fflush(stdout);
+        if(line[i] != '\r' && line[i] != '\n'){temp += line[i];}
+    }
     vector <command> cmd_pack;
     cmd_pack = parse_line(line);
 
@@ -1118,7 +1123,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 close(stdin_fd);
             }
 
-            if(!lineEndsWithPipeN && (i == cmd_pack.size()-1))
+            if((!lineEndsWithPipeN && cmd_pack[cmd_pack.size()-1].type != "out_user_pipe" && cmd_pack[cmd_pack.size()-1].type != "in_out_user_pipe") && (i == cmd_pack.size()-1))
             {
                 int child_status;
                 waitpid(pid, &child_status, 0);
