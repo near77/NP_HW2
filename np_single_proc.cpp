@@ -828,6 +828,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 if(!out_usr_exist)
                 {
                     sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
                     cmd_no++;
                     continue;
                 }
