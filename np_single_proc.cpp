@@ -459,7 +459,9 @@ int execute_cmd(vector <string> args, int socket_fd)//Execute bin command
         exec_args[arg_count++] = strdup(args[x].c_str());
     }
     exec_args[arg_count++] = 0; // tell it when to stop!
+    printf("DBG msg3\n");
     int status = execvp(exec_args[0], exec_args);
+    printf("DBG msg4\n");
     if(status == -1)
     {
         printf("DBG msg1\n");
