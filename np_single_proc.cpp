@@ -531,6 +531,15 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
     //--Execute cmd one by one---------------
     for(int i = 0; i < cmd_pack.size(); i++)
     {
+        printf("===============================\n");
+        printf("CMD: %s\n", cmd_pack[i].args[0].c_str());
+        for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size();tmp_idx ++)
+        {
+            printf("ARGS: %s\n", cmd_pack[i].args[tmp_idx].c_str());
+        }
+        printf("===============================\n");
+
+
         //--Check builtin--------------------
         int is_builtin = 0;
         is_builtin = check_builtin(cmd_pack[i].args, connect_info_table, 
