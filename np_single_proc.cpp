@@ -471,7 +471,6 @@ int execute_cmd(vector <string> args, int socket_fd)//Execute bin command
         strcat(tmp, "].\n");
         write(socket_fd, tmp, strlen(tmp));
         printf("DBG msg2\n");
-        exit(0);
     }
     return status;
 }
