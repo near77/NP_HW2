@@ -462,7 +462,7 @@ int execute_cmd(vector <string> args, int socket_fd)//Execute bin command
     int status = execvp(exec_args[0], exec_args);
     if(status == -1)
     {
-        char tmp[100] = {};
+        char tmp[100] = {0};
         strcat(tmp, "Unknown command: [");
         strcat(tmp, exec_args[0]);
         strcat(tmp, "].\n");
