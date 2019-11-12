@@ -193,7 +193,7 @@ void yell(vector <string> args, vector <connection_info> connect_info_table, int
 }
 
 int check_builtin(vector <string> args, vector <connection_info> &connect_info_table, int socket_fd,
-                    vector <int> &client_socket, int client_socket_idx)
+                    vector <int> &client_socket, int client_socket_idx, vector <vector <user_pipe> > &usr_pipe_table)
 {
     int connect_info_idx = -1;
     for(int i = 0; i < connect_info_table.size(); i++)
@@ -217,6 +217,11 @@ int check_builtin(vector <string> args, vector <connection_info> &connect_info_t
             
             write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp));
             
+        }
+        for(int tmp_idx = 0; tmp_idx < 30 ; tmp_idx ++)
+        {
+            usr_pipe_table[tmp_idx][connect_info_idx].in_fd = -1;
+            usr_pipe_table[tmp_idx][connect_info_idx].out_fd = -1;
         }
         connect_info_table.erase(connect_info_table.begin()+connect_info_idx);
         close(socket_fd);
@@ -299,7 +304,7 @@ vector <command> parse_line(string line)
                         {
                             if(temp.substr(tmp_idx, tmp_idx+4) == "yell")
                             {
-                                cmd.args.push_back(temp.substr(tmp_idx+6, (int)temp.length()));
+                                cmd.args.push_back(temp.substr(tmp_idx+5, (int)temp.length()));
                                 break;
                             }
                         }
@@ -519,6 +524,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
     {
         return 0;
     }
+    string temp = line;
     vector <command> cmd_pack;
     cmd_pack = parse_line(line);
 
@@ -527,7 +533,9 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
     {
         //--Check builtin--------------------
         int is_builtin = 0;
-        is_builtin = check_builtin(cmd_pack[i].args, connect_info_table, socket_fd, client_socket, client_socket_idx);
+        is_builtin = check_builtin(cmd_pack[i].args, connect_info_table, 
+                                    socket_fd, client_socket, client_socket_idx,
+                                    usr_pipe_table);
         if(is_builtin)
         {
             cmd_no++;
@@ -718,7 +726,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     char tmp[100];
                     sprintf(tmp, "*** %s (#%d) just piped '%s' to %s (#%d) ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, cmd.c_str(), receiver_name.c_str(),
+                            current_usr_id, temp.c_str(), receiver_name.c_str(),
                             cmd_pack[i].out_usr_id);
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
@@ -818,7 +826,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     char tmp[100];
                     sprintf(tmp, "*** %s (#%d) just piped '%s' to %s (#%d) ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, cmd.c_str(), receiver_name.c_str(),
+                            current_usr_id, temp.c_str(), receiver_name.c_str(),
                             cmd_pack[i].out_usr_id);
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
