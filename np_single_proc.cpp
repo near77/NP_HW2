@@ -1017,7 +1017,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 int devNull = open("/dev/null", O_WRONLY);
                 stdin_fd = devNull;
                 cmd_no++;
-                continue;
+                //continue;
             }
             else
             {
@@ -1070,9 +1070,10 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         
         //--------------------------------------------------
 
-
+        
         //--Fork child to execute the command---------------
         signal(SIGCHLD, childHandler);
+        
         pid_t pid = fork();
         if(pid == 0)
         {
@@ -1180,7 +1181,7 @@ int main(int argc, char *argv[])
     //accept the incoming connection  
     
     addrlen = sizeof(address);   
-    puts("Waiting for connections ...");   
+    printf("Waiting for connections ...\n");   
     
     vector <connection_info> connect_info_table;
     vector <user_pipe> one_dim_usr_pipe(30);
@@ -1223,14 +1224,16 @@ int main(int argc, char *argv[])
         //wait for an activity on one of the sockets , timeout is NULL ,  
         //so wait indefinitely 
         
-        tryagain:
-        activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);   
+
+        while((activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL)) < 0);
+        // tryagain:
+        // activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);   
        
-        if ((activity < 0))   
-        {   
-            perror("select error");   
-            goto tryagain;
-        }      
+        // if ((activity < 0))   
+        // {   
+        //     perror("select error");   
+        //     goto tryagain;
+        // }      
         //If something happened on the master socket ,  
         //then its an incoming connection  
         if (FD_ISSET(master_socket, &readfds))   
@@ -1300,7 +1303,7 @@ int main(int argc, char *argv[])
                 perror("send");   
             }
             send(new_socket , "% " , 2 , 0);
-            puts("Welcome message sent successfully\n");   
+            printf("Welcome message sent successfully\n");   
                  
             //add new socket to array of sockets  
             for (i = 0; i < max_clients; i++)   
