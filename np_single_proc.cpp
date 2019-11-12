@@ -1277,7 +1277,7 @@ int main(int argc, char *argv[])
             for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
             {
                 char tmp[100];
-                sprintf(tmp, "*** User '%s' entered from %s. ***", 
+                sprintf(tmp, "*** User '%s' entered from %s. ***\n", 
                         new_connect_info.user_name.c_str(),new_connect_info.ip_port.c_str());
                 //if(connect_info_table[info_idx].socket_fd != new_socket)
                 
@@ -1299,7 +1299,7 @@ int main(int argc, char *argv[])
                 perror("send");   
             }
             send(new_socket , "% " , 2 , 0);
-            puts("Welcome message sent successfully");   
+            puts("Welcome message sent successfully\n");   
                  
             //add new socket to array of sockets  
             for (i = 0; i < max_clients; i++)   
