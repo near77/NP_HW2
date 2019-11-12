@@ -638,10 +638,30 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
                 //---write error-------------------
-                char tmp[100];
-                sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
-                        cmd_pack[i].in_usr_id,current_usr_id);
-                write(socket_fd, tmp, strlen(tmp));
+                int in_usr_exist = 0;
+                for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
+                {
+                    if(cmd_pack[i].in_usr_id == connect_info_table[tmp_idx].user_id)
+                    {
+                        in_usr_exist = 1;
+                        break;
+                    }
+                }
+
+                if(in_usr_exist)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id,current_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));   
+                }
+                else
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                }
+                
                 int devNull = open("/dev/null", O_WRONLY);
                 stdin_fd = devNull;
                 err_flag = 1;

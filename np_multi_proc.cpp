@@ -23,7 +23,7 @@ string message =
 *** User ’(no name)’ entered from ";
 int client_id = -1;
 
-//-----Built in command-------------------------------
+
 void printenv(vector <string> args)
 {
     string env = getenv(args[1].c_str());
@@ -32,37 +32,61 @@ void printenv(vector <string> args)
 
 struct client_share_memory
 {
-    int lock;
-    string client_name[30];
-    int client_pid[30];
-    int usr_pipe_table[30][30];
-    string tell_table[30][30];
-    client_share_memory()
-    {
-        lock = 0;
-        for(int i = 0; i < 30; i++)
-        {
-            client_name[i] = "(no name)";
-            client_pid[i] = -1;
-            for(int j = 0; j < 30; j++)
-            {
-                usr_pipe_table[i][j] = 0;
-                tell_table[i][j] = "";
-            }
-        }
-    }
+    int lock;//init 0
+    string client_name[30];//init (no name)
+    int client_pid[30];//init 0
+    int usr_pipe_table[30][30];//init 0, if != 0 ; file_name = (i+1)_(j+1)
+    string tell_table[30][30];//init ""
+    string ip_port_table[30];
+    // client_share_memory()
+    // {
+    //     lock = 0;
+    //     for(int i = 0; i < 30; i++)
+    //     {
+    //         client_name[i] = "(no name)";
+    //         client_pid[i] = -1;
+    //         ip_port_table[i] = "";
+    //         for(int j = 0; j < 30; j++)
+    //         {
+    //             usr_pipe_table[i][j] = 0;
+    //             tell_table[i][j] = "";
+    //         }
+    //     }
+    // }
 };
 
 client_share_memory * share_mem = (client_share_memory*)mmap(NULL,
                                     sizeof(client_share_memory)*30, 
                                     PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED,
                                     -1, 0);
+void init_share_mem()
+{
+    share_mem->lock = 0;
+    for(int i = 0; i < 30; i++)
+    {
+        share_mem->client_name[i] = "(no name)";
+        share_mem->client_pid[i] = -1;
+        share_mem->ip_port_table[i] = "NULL";
+        for(int j = 0; j < 30; j++)
+        {
+            share_mem->usr_pipe_table[i][j] = 0;
+            share_mem->tell_table[i][j] = "NULL";
+        }
+    }
+}
 
 void tell(vector <string> args)
 {
     //-----LOCK--------------------
-    share_mem -> tell_table[client_id-1][stoi(args[1])-1] = args[2];
-    kill(share_mem -> client_pid[stoi(args[1])-1], SIGUSR1);
+    if(share_mem -> client_pid[stoi(args[1])-1] != -1)
+    {
+        share_mem -> tell_table[client_id-1][stoi(args[1])-1] = args[2];
+        kill(share_mem -> client_pid[stoi(args[1])-1], SIGUSR1);
+    }
+    else
+    {
+        printf("*** Error: user #%d does not exist yet. ***\n", share_mem -> client_pid[stoi(args[1])-1]);
+    }
 }
 
 void yell(vector <string> args)
@@ -70,36 +94,72 @@ void yell(vector <string> args)
     //-----LOCK--------------------
     for(int i = 0; i < 30; i++)
     {
-        share_mem -> tell_table[client_id-1][i] = args[1];
-        kill(share_mem -> client_pid[i], SIGUSR1);
+        if(share_mem -> client_pid[i] != -1)
+        {
+            share_mem -> tell_table[client_id-1][i] = args[1];
+            kill(share_mem -> client_pid[i], SIGUSR1);
+        }
     }
 }
 
-int check_builtin(vector <string> args)
+void who()
+{
+    printf("<ID>    <nickname>    <IP:port>   <indicate me>\n");
+    for(int i = 0; i < 30; i++)
+    {
+        if(share_mem ->client_pid[i] != -1)
+        {
+            if(i+1 == client_id)
+            {
+                printf("%d    %s    %s    <-me\n", i+1, 
+                        share_mem->client_name[i].c_str(),
+                        share_mem->ip_port_table[i].c_str());
+            }
+            else
+            {
+                printf("%d    %s    %s    \n", i+1,
+                        share_mem->client_name[i].c_str(),
+                        share_mem->ip_port_table[i].c_str());
+            }
+        }
+    }
+}
+
+
+void clear_sharemem_info(void)
+{
+    // LOCK
+    share_mem -> client_name[client_id-1] = "(no_name)";
+    share_mem -> client_pid[client_id-1] = -1;
+    share_mem -> ip_port_table[client_id-1] = "NULL";
+    for(int i = 0; i < 30; i++)
+    {
+        share_mem -> tell_table[i][client_id-1] = "NULL";
+        share_mem -> tell_table[client_id-1][i] = "NULL";
+        share_mem -> usr_pipe_table[i][client_id-1] = 0;
+        share_mem -> usr_pipe_table[client_id-1][i] = 0;
+    }
+    share_mem -> lock = 0;
+}
+
+int check_builtin(vector <string> args, int socket_fd)
 {
     int is_builtin = 1;
     if(args[0] == "printenv"){printenv(args);}
     else if(args[0] == "exit")
     {
         //-----LOCK--------------------
-        share_mem -> client_pid[client_id-1] = -1;
-        share_mem -> client_name[client_id-1] = "(no name)";
-        for(int i = 0; i < 30; i++)
-        {
-            share_mem->tell_table[i][client_id-1] = "";
-            share_mem->tell_table[client_id-1][i] = "";
-            share_mem->usr_pipe_table[i][client_id-1] = 0;
-            share_mem->usr_pipe_table[client_id-1][i] = 0;
-        }
-        exit_flag = 1;
+        clear_sharemem_info();
+        close(socket_fd);
+        exit(0);
     }
     else if(args[0] == "setenv"){setenv(args[1].c_str(), args[2].c_str(), 1);}
+    else if(args[0] == "tell"){tell(args);}
+    else if(args[0] == "yell"){yell(args);}
+    else if(args[0] == "who"){who();}
     else{is_builtin = 0;}
     return is_builtin;
 }
-//----------------------------------------------------
-
-
 
 struct command
 {
@@ -177,7 +237,7 @@ vector <command> parse_line(string line)
                         {
                             if(temp.substr(tmp_idx, tmp_idx+4) == "yell")
                             {
-                                cmd.args.push_back(temp.substr(tmp_idx+6, (int)temp.length()));
+                                cmd.args.push_back(temp.substr(tmp_idx+5, (int)temp.length()));
                                 break;
                             }
                         }
@@ -363,10 +423,10 @@ void tell_handler(int signo)
 {
     for(int i = 0; i < 30; i++)
     {
-        if(share_mem -> tell_table[i][client_id-1] != "" )
+        if(share_mem -> tell_table[i][client_id-1] != "NULL" )
         {
             printf("%s\n", share_mem -> tell_table[i][client_id-1].c_str());
-            share_mem -> tell_table[i][client_id-1] = "";
+            share_mem -> tell_table[i][client_id-1] = "NULL";
         }
     }
 }
@@ -377,6 +437,7 @@ void shell_loop(int socket_fd)
     dup2(socket_fd, STDOUT_FILENO);
     dup2(socket_fd, STDIN_FILENO);
     dup2(socket_fd, STDERR_FILENO);
+    
     string line;
     string const DELI{" "};
     vector <number_pipe> numpipe_table;
@@ -394,14 +455,9 @@ void shell_loop(int socket_fd)
         {
             //--Check builtin--------------------
             int is_builtin = 0;
-            is_builtin = check_builtin(cmd_pack[i].args);
-            printf("EXIT\n");
+            is_builtin = check_builtin(cmd_pack[i].args, socket_fd);
             if(is_builtin)
             {
-                if(exit_flag)
-                {
-                    break;
-                }
                 cmd_no++;
                 continue;
             }
@@ -411,6 +467,7 @@ void shell_loop(int socket_fd)
             int stdin_fd = socket_fd;
             int stdout_fd = socket_fd;
             int is_target = 0;
+            int is_usr_target = 0;
             int target_infd[2];
 
             for(int j = 0; j < numpipe_table.size(); j++)
@@ -475,27 +532,283 @@ void shell_loop(int socket_fd)
             }
             else if(cmd_pack[i].type == "in_out_user_pipe")
             {
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
+
+                //---------Write User Pipe-----------------------
+                if(share_mem->client_pid[cmd_pack[i].out_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            client_id, cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    //--TODO---
+                    //signal target pid and open FIFO
+                }
                 
+                //-----------------------------------------------
             }
             else if(cmd_pack[i].type == "in_file_user_pipe")
             {
-                
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
+
+                //-------File Pipe-------------------------------
+                stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
+                //-----------------------------------------------
             }
             else if(cmd_pack[i].type == "out_user_pipe")
             {
+                 //---------Write User Pipe-----------------------
+                if(share_mem->client_pid[cmd_pack[i].out_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            client_id, cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    //--TODO---
+                    //signal target pid and open FIFO
+                }
                 
+                //-----------------------------------------------
             }
             else if(cmd_pack[i].type == "in_user_pipe")
             {
-                
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
             }
             else if(cmd_pack[i].type == "in_numpipe_user_pipe")
             {
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
                 
+
+                //-------Number Pipe-----------------------------
+                for(int j = 0; j < numpipe_table.size(); j++)
+                {
+                    if(cmd_no + cmd_pack[i].num_pipe == numpipe_table[j].target_cmd_num)
+                    {
+                        stdout_fd = numpipe_table[j].out_fd;
+                        break;
+                    }
+                }
+                if(stdout_fd == socket_fd)
+                {
+                    int fd[2];
+                    pipe(fd);
+                    struct number_pipe target;
+                    target.in_fd = fd[0];
+                    target.out_fd = fd[1];
+                    target.target_cmd_num = cmd_no + cmd_pack[i].num_pipe;
+                    numpipe_table.push_back(target);
+                    stdout_fd = fd[1];
+                }
+                //-----------------------------------------------
             }
             else if(cmd_pack[i].type == "in_pipe_user_pipe")
             {
-                
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
+
+                //-------Normal Pipe-----------------------------
+                for(int j = 0; j < numpipe_table.size(); j++)
+                {
+                    if(cmd_no + 1 == numpipe_table[j].target_cmd_num)
+                    {
+                        stdout_fd = numpipe_table[j].out_fd;
+                        break;
+                    }
+                }
+                if(stdout_fd == socket_fd)
+                {
+                    int fd[2];
+                    pipe(fd);
+                    struct number_pipe target;
+                    target.in_fd = fd[0];
+                    target.out_fd = fd[1];
+                    target.target_cmd_num = cmd_no + 1;
+                    numpipe_table.push_back(target);
+                    stdout_fd = fd[1];
+                }
+                //------------------------------------------------
             }
             //-----------------------------------
             signal(SIGCHLD, childHandler);
@@ -515,12 +828,17 @@ void shell_loop(int socket_fd)
             else
             {
                 int lineEndsWithPipeN = 0;
-                if(cmd_pack[cmd_pack.size()-1].type == "num_pipe" or cmd_pack[cmd_pack.size()-1].type == "err_num_pipe")
+                if(cmd_pack[cmd_pack.size()-1].type == "num_pipe" 
+                    or cmd_pack[cmd_pack.size()-1].type == "err_num_pipe")
                 {
                     lineEndsWithPipeN = 1;
                 }
-                if(is_target){close(target_infd[0]);}
-                if(!lineEndsWithPipeN && (i == cmd_pack.size()-1))
+                if(is_target || is_usr_target)
+                {
+                    close(stdin_fd);
+                }
+                if(!lineEndsWithPipeN && cmd_pack[i].type != "out_user_pipe" 
+                    && cmd_pack[i].type != "in_out_user_pipe" && (i == cmd_pack.size()-1))
                 {
                     int status;
                     waitpid(pid, &status, 0);
@@ -528,21 +846,13 @@ void shell_loop(int socket_fd)
             }
             cmd_no++;
         }
-        
-        if(exit_flag)
-        {
-            printf("EXIT\n");
-            exit_flag = 0;
-            //close(socket_fd);
-            break;
-        }
     }
-    printf("EXIT\n");
 }
 
 
 int main(int argc, char *argv[])
 {
+    init_share_mem();
     setenv("PATH", "bin:.", 1);
     int server_fd, new_socket, valread; 
     struct sockaddr_in address; 
@@ -608,7 +918,21 @@ int main(int argc, char *argv[])
             }
             puts("Welcome message sent successfully"); 
             //---------------------------------------
-
+            int shm_idx = -1;
+            for(int i = 0; i < 30; i++)
+            {
+                if(share_mem -> client_pid[i] == -1)
+                {
+                    string ip_port = string(inet_ntoa(address.sin_addr));
+                    ip_port += ":";
+                    ip_port += to_string(ntohs(address.sin_port));
+                    share_mem -> ip_port_table[i] = ip_port;
+                    shm_idx = i;
+                    client_id = i+1;
+                    break;
+                }
+            }
+            
             pid_t pid = fork();
             if(pid == 0)
             {
@@ -618,15 +942,7 @@ int main(int argc, char *argv[])
             else
             {
                 //-----LOCK--------------------
-                for(int i = 0; i < 30; i++)
-                {
-                    if(share_mem -> client_pid[i] == -1)
-                    {
-                        share_mem -> client_pid[i] = pid;
-                        client_id = i+1;
-                        break;
-                    }
-                }
+                share_mem -> client_pid[shm_idx] = pid;
                 close(new_socket);
             }
         }
