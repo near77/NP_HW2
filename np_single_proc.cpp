@@ -1198,7 +1198,7 @@ int main(int argc, char *argv[])
 "***************************************\n\
 ** Welcome to the information server. **\n\
 ***************************************\n\
-*** User ’(no name)’ entered from ";
+*** User '(no name)' entered from ";
         //clear the socket set  
         FD_ZERO(&readfds);   
      
@@ -1283,9 +1283,11 @@ int main(int argc, char *argv[])
                 char tmp[100];
                 sprintf(tmp, "*** User '%s' entered from %s. ***\n", 
                         new_connect_info.user_name.c_str(),new_connect_info.ip_port.c_str());
-                //if(connect_info_table[info_idx].socket_fd != new_socket)
+                if(connect_info_table[info_idx].socket_fd != new_socket)
+                {
+                    write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp));
+                }
                 
-                write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp));
                 
             }
             //------------------------------------------------
