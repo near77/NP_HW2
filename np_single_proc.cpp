@@ -462,11 +462,13 @@ int execute_cmd(vector <string> args, int socket_fd)//Execute bin command
     int status = execvp(exec_args[0], exec_args);
     if(status == -1)
     {
+        printf("DBG msg1\n");
         char tmp[100] = {0};
         strcat(tmp, "Unknown command: [");
         strcat(tmp, exec_args[0]);
         strcat(tmp, "].\n");
         write(socket_fd, tmp, strlen(tmp));
+        printf("DBG msg2\n");
         exit(0);
     }
     return status;
