@@ -154,8 +154,7 @@ int execute_cmd(vector <string> args)//Execute bin command
         strcat(tmp, "Unknown command: [");
         strcat(tmp, exec_args[0]);
         strcat(tmp, "].\n");
-        write(2, tmp, sizeof(char)*100);
-        exit(0);
+        write(2, tmp, strlen(tmp));
     }
     return status;
 }
