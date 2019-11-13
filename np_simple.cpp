@@ -325,6 +325,7 @@ void shell_loop(int socket_fd)
 
 int main(int argc, char *argv[])
 {
+    clearenv();
     setenv("PATH", "bin:.", 1);
     int server_fd, new_socket, valread; 
     struct sockaddr_in address; 

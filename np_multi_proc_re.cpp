@@ -518,7 +518,6 @@ void shell_loop(int socket_fd)
             int is_usr_target = 0;
             int target_infd[2];
 
-            //----Set stdin to pipe or numpipe--------------
             for(int j = 0; j < numpipe_table.size(); j++)
             {
                 if(cmd_no == numpipe_table[j].target_cmd_num)
@@ -526,13 +525,12 @@ void shell_loop(int socket_fd)
                     close(numpipe_table[j].out_fd);
                     is_target = 1;
                     stdin_fd = numpipe_table[j].in_fd;
+                    target_infd[0] = numpipe_table[j].in_fd;
+                    target_infd[1] = numpipe_table[j].out_fd;
                     break;
                 }
             }
-
-            //----Set stdout to pipe------------------------
-            if(cmd_pack[i].type == "pipe"||cmd_pack[i].type == "err_pipe" 
-                ||cmd_pack[i].type == "in_pipe_user_pipe")
+            if(cmd_pack[i].type == "pipe" or cmd_pack[i].type == "err_pipe")
             {
                 for(int j = 0; j < numpipe_table.size(); j++)
                 {
@@ -554,10 +552,7 @@ void shell_loop(int socket_fd)
                     stdout_fd = fd[1];
                 }
             }
-            
-            //----Set stdout to numpipe---------------------
-            if(cmd_pack[i].type == "num_pipe"||cmd_pack[i].type == "err_num_pipe"
-                ||cmd_pack[i].type == "in_numpipe_user_pipe")
+            else if(cmd_pack[i].type == "num_pipe" or cmd_pack[i].type == "err_num_pipe")
             {
                 for(int j = 0; j < numpipe_table.size(); j++)
                 {
@@ -579,11 +574,147 @@ void shell_loop(int socket_fd)
                     stdout_fd = fd[1];
                 }
             }
+            else if(cmd_pack[i].type == "file_pipe")
+            {
+                stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
+            }
+            else if(cmd_pack[i].type == "in_out_user_pipe")
+            {
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    stdin_fd = share_mem->usr_pipe_fd[cmd_pack[i].in_usr_id-1][client_id-1];
+                }
+                //-----------------------------------------------
 
-            //----Set stdin to user pipe--------------------
-            if(cmd_pack[i].type == "in_user_pipe"||cmd_pack[i].type == "in_out_user_pipe"
-                ||cmd_pack[i].type == "in_file_user_pipe"||cmd_pack[i].type == "in_pipe_user_pipe"
-                ||cmd_pack[i].type == "in_numpipe_user_pipe")
+                //---------Write User Pipe-----------------------
+                if(share_mem->client_pid[cmd_pack[i].out_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            client_id, cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    //--TODO---
+                    //signal target pid and open FIFO
+                    char filename[10];
+                    sprintf(filename, "user_pipe/%d_%d", client_id, cmd_pack[i].out_usr_id);
+                    mkfifo(filename, 0666);
+                    kill(share_mem->client_pid[cmd_pack[i].out_usr_id-1], SIGUSR2);
+                }
+                
+                //-----------------------------------------------
+            }
+            else if(cmd_pack[i].type == "in_file_user_pipe")
+            {
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
+
+                //-------File Pipe-------------------------------
+                stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
+                //-----------------------------------------------
+            }
+            else if(cmd_pack[i].type == "out_user_pipe")
+            {
+                //---------Write User Pipe-----------------------
+                if(share_mem->client_pid[cmd_pack[i].out_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            client_id, cmd_pack[i].out_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    //--TODO---
+                    //signal target pid and open FIFO
+                    
+                    
+                }
+                
+                //-----------------------------------------------
+            }
+            else if(cmd_pack[i].type == "in_user_pipe")
             {
                 //--------Read User Pipe------------------------
                 if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
@@ -618,43 +749,121 @@ void shell_loop(int socket_fd)
                 }
                 //-----------------------------------------------
             }
-
-            //----Set stdout to user pipe------------------
-            if(cmd_pack[i].type == "out_user_pipe"||cmd_pack[i].type =="in_out_user_pipe")
+            else if(cmd_pack[i].type == "in_numpipe_user_pipe")
             {
-                //---------Write User Pipe-----------------------
-                if(share_mem->client_pid[cmd_pack[i].out_usr_id-1] == -1)
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
                 // if pid = -1 -> it doesn't exist.
                 {
                     char tmp[100];
-                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].out_usr_id);
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
                     write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
                     cmd_no++;
                     continue;
                 }
-                else if(share_mem->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] == 0)
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
                 {
                     char tmp[100];
                     sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
-                            client_id, cmd_pack[i].out_usr_id);
+                            cmd_pack[i].in_usr_id, client_id);
                     write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
                     cmd_no++;
                     continue;
                 }
                 else
                 {
+                    is_usr_target = 1;
                     //--TODO---
-                    //signal target pid and open FIFO
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
+                
+
+                //-------Number Pipe-----------------------------
+                for(int j = 0; j < numpipe_table.size(); j++)
+                {
+                    if(cmd_no + cmd_pack[i].num_pipe == numpipe_table[j].target_cmd_num)
+                    {
+                        stdout_fd = numpipe_table[j].out_fd;
+                        break;
+                    }
+                }
+                if(stdout_fd == socket_fd)
+                {
+                    int fd[2];
+                    pipe(fd);
+                    struct number_pipe target;
+                    target.in_fd = fd[0];
+                    target.out_fd = fd[1];
+                    target.target_cmd_num = cmd_no + cmd_pack[i].num_pipe;
+                    numpipe_table.push_back(target);
+                    stdout_fd = fd[1];
                 }
                 //-----------------------------------------------
             }
-
-            //----Set stdout to file pipe------------------
-            if(cmd_pack[i].type == "file_pipe"||cmd_pack[i].type == "in_file_user_pipe")
+            else if(cmd_pack[i].type == "in_pipe_user_pipe")
             {
-                stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
-            }
+                //--------Read User Pipe------------------------
+                if(share_mem->client_pid[cmd_pack[i].in_usr_id-1] == -1)
+                // if pid = -1 -> it doesn't exist.
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: user #%d does not exist yet. ***\n", cmd_pack[i].in_usr_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
+                {
+                    char tmp[100];
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                            cmd_pack[i].in_usr_id, client_id);
+                    write(socket_fd, tmp, strlen(tmp));
+                    int devNull = open("/dev/null", O_WRONLY);
+                    stdin_fd = devNull;
+                    cmd_no++;
+                    continue;
+                }
+                else
+                {
+                    is_usr_target = 1;
+                    //--TODO---
+                    //signal handler will receive a signal and record
+                    //the fd than here will simply set that fd to stdin
+                    
+                }
+                //-----------------------------------------------
 
+                //-------Normal Pipe-----------------------------
+                for(int j = 0; j < numpipe_table.size(); j++)
+                {
+                    if(cmd_no + 1 == numpipe_table[j].target_cmd_num)
+                    {
+                        stdout_fd = numpipe_table[j].out_fd;
+                        break;
+                    }
+                }
+                if(stdout_fd == socket_fd)
+                {
+                    int fd[2];
+                    pipe(fd);
+                    struct number_pipe target;
+                    target.in_fd = fd[0];
+                    target.out_fd = fd[1];
+                    target.target_cmd_num = cmd_no + 1;
+                    numpipe_table.push_back(target);
+                    stdout_fd = fd[1];
+                }
+                //------------------------------------------------
+            }
             //-----------------------------------
             signal(SIGCHLD, childHandler);
             pid_t pid = fork();
