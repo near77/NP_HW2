@@ -48,12 +48,10 @@ struct user_pipe
 {
     int in_fd;
     int out_fd;
-    string cmd;
     user_pipe()
     {
         in_fd = -1;
         out_fd = -1;
-        cmd = " ";
     }
 };
 
@@ -562,6 +560,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         //--Set stdin stdout pipe------------
         int stdin_fd = STDIN_FILENO;
         int stdout_fd = socket_fd;
+        int stderr_fd = socket_fd;
         int is_target = 0;
         int is_usr_target = 0;
         int target_infd[2];
@@ -684,7 +683,6 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 pipe(fd);// open a new pipe for target user
                 usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
                 usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
-                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd = temp;
                 stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
             }
             else
@@ -736,9 +734,8 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd.c_str());
+                            temp.c_str());
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
-                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
                 }
 
@@ -828,8 +825,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
-                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
+                            temp.c_str());
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -864,7 +860,6 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     pipe(fd);// open a new pipe for target user
                     usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
                     usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
-                    usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd = temp;
                     stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
                     string receiver_name = "";
                     for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
@@ -974,8 +969,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
-                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
+                            temp.c_str());
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -1034,8 +1028,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
-                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
+                            temp.c_str());
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -1114,8 +1107,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
-                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
+                            temp.c_str());
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -1157,9 +1149,12 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             {
                 dup2(stdout_fd, STDERR_FILENO);
             }
+            else
+            {
+                dup2(stderr_fd, STDERR_FILENO);
+            }
             dup2(stdin_fd, STDIN_FILENO);
             dup2(stdout_fd, STDOUT_FILENO);
-
             execute_cmd(cmd_pack[i].args, socket_fd);
             exit(0);
         }
