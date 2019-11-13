@@ -48,10 +48,12 @@ struct user_pipe
 {
     int in_fd;
     int out_fd;
+    string cmd;
     user_pipe()
     {
         in_fd = -1;
         out_fd = -1;
+        cmd = " ";
     }
 };
 
@@ -634,10 +636,10 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
         else if(cmd_pack[i].type == "in_out_user_pipe")
         {
             int err_flag = 0;
-
+            //---Read User Pipe--------------------------
             if(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd == -1)
             {
-                //---write error-------------------
+                //---read error-------------------
                 int in_usr_exist = 0;
                 for(int tmp_idx = 0; tmp_idx < connect_info_table.size();tmp_idx++)
                 {
@@ -651,7 +653,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 if(in_usr_exist)
                 {
                     char tmp[100];
-                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exist yet. ***\n", 
                             cmd_pack[i].in_usr_id,current_usr_id);
                     write(socket_fd, tmp, strlen(tmp));   
                 }
@@ -670,18 +672,19 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
             {
                 is_usr_target = 1;
                 stdin_fd = usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd;// target to current (in_fd = read end)
-            
                 close(usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd);
                 usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].in_fd = -1;
                 usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].out_fd = -1;
             }
 
+            //------Write User Pipe----------------------------
             if(usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd == -1)
             {
                 int fd[2];
                 pipe(fd);// open a new pipe for target user
                 usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
                 usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
+                usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd = temp;
                 stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
             }
             else
@@ -730,11 +733,12 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
                 {
                     char tmp[50];
-                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
+                            usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd);
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
-                    
+                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
                 }
 
@@ -788,7 +792,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 char tmp[100];
                 if(in_usr_exist)
                 {
-                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exist yet. ***\n", 
                             cmd_pack[i].in_usr_id,current_usr_id);
                 }
                 else
@@ -821,9 +825,11 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
                 {
                     char tmp[50];
-                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -858,6 +864,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     pipe(fd);// open a new pipe for target user
                     usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].in_fd = fd[0];//update usr pipe table
                     usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd = fd[1];
+                    usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd = temp;
                     stdout_fd = usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].out_fd;
                     string receiver_name = "";
                     for(int tmp_idx = 0;tmp_idx < connect_info_table.size();tmp_idx++)
@@ -933,7 +940,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 char tmp[100];
                 if(in_usr_exist)
                 {
-                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exist yet. ***\n", 
                             cmd_pack[i].in_usr_id,current_usr_id);
                 }
                 else
@@ -964,9 +971,11 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
                 {
                     char tmp[50];
-                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -990,7 +999,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 char tmp[100];
                 if(in_usr_exist)
                 {
-                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exist yet. ***\n", 
                             cmd_pack[i].in_usr_id,current_usr_id);
                 }
                 else
@@ -1022,9 +1031,11 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
                 {
                     char tmp[50];
-                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -1069,7 +1080,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 char tmp[100];
                 if(in_usr_exist)
                 {
-                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exist yet. ***\n", 
                             cmd_pack[i].in_usr_id,current_usr_id);
                 }
                 else
@@ -1100,9 +1111,11 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                 for(int info_idx = 0; info_idx < connect_info_table.size(); info_idx++)
                 {
                     char tmp[50];
-                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) ***\n", 
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
-                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id);
+                            current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                    usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -1258,9 +1271,9 @@ int main(int argc, char *argv[])
     {   
         //a message 
         string message = 
-"***************************************\n\
+"****************************************\n\
 ** Welcome to the information server. **\n\
-***************************************\n\
+****************************************\n\
 *** User '(no name)' entered from ";
         //clear the socket set  
         FD_ZERO(&readfds);   
