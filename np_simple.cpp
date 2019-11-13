@@ -172,6 +172,10 @@ void childHandler(int signo)
 
 void shell_loop(int socket_fd)
 {
+    int old_stdin = dup(STDIN_FILENO);
+    int old_stdout = dup(STDOUT_FILENO);
+    int old_stderr = dup(STDERR_FILENO);
+
     dup2(socket_fd, STDOUT_FILENO);
     dup2(socket_fd, STDIN_FILENO);
     dup2(socket_fd, STDERR_FILENO);
@@ -310,7 +314,9 @@ void shell_loop(int socket_fd)
         if(exit_flag)
         {
             exit_flag = 0;
-            close(socket_fd);
+            dup2(old_stdout, STDOUT_FILENO);
+            dup2(old_stdin, STDIN_FILENO);
+            dup2(old_stderr, STDERR_FILENO);
             break;
         }
     }
@@ -366,9 +372,6 @@ int main(int argc, char *argv[])
         else
         {
             shell_loop(new_socket);
-            close(0);
-            close(1);
-            close(2);
             close(new_socket);
         }
     }
