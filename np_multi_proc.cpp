@@ -15,20 +15,23 @@
 #include <sys/mman.h>
 
 using namespace std;
-int exit_flag = 0;
-string message = 
-"****************************************\n\
-** Welcome to the information server. **\n\
-****************************************\n\
-*** User ’(no name)’ entered from ";
-int client_id = -1;
 
-
-void printenv(vector <string> args)
+struct command
 {
-    string env = getenv(args[1].c_str());
-    if(env!=""){printf("%s\n", env.c_str());}
-}
+    vector<string> args;
+    string type;
+    string file;
+    int num_pipe;
+    int in_usr_id;
+    int out_usr_id;
+};
+
+struct number_pipe
+{
+    int target_cmd_num;
+    int in_fd;
+    int out_fd;
+};
 
 struct client_share_memory
 {
@@ -41,10 +44,26 @@ struct client_share_memory
     int usr_pipe_fd[30][30];
 };
 
+
+string message = 
+"****************************************\n\
+** Welcome to the information server. **\n\
+****************************************\n\
+*** User ’(no name)’ entered from ";
+int client_id = -1;
+int exit_flag = 0;
+
 client_share_memory * share_mem = (client_share_memory*)mmap(NULL,
                                     sizeof(client_share_memory), 
                                     PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED,
                                     -1, 0);
+
+void printenv(vector <string> args)
+{
+    string env = getenv(args[1].c_str());
+    if(env!=""){printf("%s\n", env.c_str());}
+}
+
 void init_share_mem()
 {
     share_mem->lock = 0;
@@ -128,7 +147,7 @@ void clear_sharemem_info(void)
     for(int i = 0; i < 30; i++)
     {
         strcpy(share_mem->tell_table[i][client_id-1], "NULL");
-        strcpy(share_mem->tell_table[client_id-1][i], "NULL");
+        //strcpy(share_mem->tell_table[client_id-1][i], "NULL");
         share_mem -> usr_pipe_table[i][client_id-1] = 0;
         share_mem -> usr_pipe_table[client_id-1][i] = 0;
     }
@@ -191,23 +210,6 @@ int check_builtin(vector <string> args, int socket_fd)
     else{is_builtin = 0;}
     return is_builtin;
 }
-
-struct command
-{
-    vector<string> args;
-    string type;
-    string file;
-    int num_pipe;
-    int in_usr_id;
-    int out_usr_id;
-};
-
-struct number_pipe
-{
-    int target_cmd_num;
-    int in_fd;
-    int out_fd;
-};
 
 vector <command> parse_line(string line)
 {
@@ -470,10 +472,12 @@ void user_pipe_handler(int signo)
     for(int i = 0; i < 30; i++)
     {
         if(share_mem -> usr_pipe_table[i][client_id-1] != 0)
-        {
-            char filename[10];
-            sprintf(filename, "%d_%d", i+1, client_id);
+        {   
+            char filename[30];
+            sprintf(filename, "user_pipe/%d_%d", i+1, client_id);
+            mkfifo(filename, 0666);
             share_mem ->usr_pipe_fd[i][client_id-1] = open(filename, O_RDONLY);
+            break;
         }
     }
 }
@@ -501,6 +505,7 @@ void shell_loop(int socket_fd)
         cmd_pack = parse_line(line);
         for(int i = 0; i < cmd_pack.size(); i++)
         {
+            printf("EXECUTE CMD: %s\n", cmd_pack[i].args[0].c_str());
             //--Check builtin--------------------
             int is_builtin = 0;
             is_builtin = check_builtin(cmd_pack[i].args, socket_fd);
@@ -614,11 +619,10 @@ void shell_loop(int socket_fd)
                     //--TODO---
                     //signal handler will receive a signal and record
                     //the fd than here will simply set that fd to stdin
-                    
+                    stdin_fd = share_mem -> usr_pipe_fd[cmd_pack[i].in_usr_id-1][client_id-1];
                 }
                 //-----------------------------------------------
             }
-
             //----Set stdout to user pipe------------------
             if(cmd_pack[i].type == "out_user_pipe"||cmd_pack[i].type =="in_out_user_pipe")
             {
@@ -632,10 +636,10 @@ void shell_loop(int socket_fd)
                     cmd_no++;
                     continue;
                 }
-                else if(share_mem->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] == 0)
+                else if(share_mem->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] != 0)
                 {
                     char tmp[100];
-                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d already exists. ***\n", 
                             client_id, cmd_pack[i].out_usr_id);
                     write(socket_fd, tmp, strlen(tmp));
                     cmd_no++;
@@ -645,6 +649,13 @@ void shell_loop(int socket_fd)
                 {
                     //--TODO---
                     //signal target pid and open FIFO
+                    share_mem ->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] = 1;
+                    char filename[30];
+                    sprintf(filename, "user_pipe/%d_%d", client_id, cmd_pack[i].out_usr_id);
+                    mkfifo(filename, 0666);
+                    kill(share_mem->client_pid[cmd_pack[i].out_usr_id-1], SIGUSR2);
+                    stdout_fd = open(filename, O_WRONLY);
+                    unlink(filename);
                 }
                 //-----------------------------------------------
             }
@@ -654,7 +665,6 @@ void shell_loop(int socket_fd)
             {
                 stdout_fd = open(cmd_pack[i].file.c_str(), O_RDWR|O_CREAT|O_TRUNC, 0666);
             }
-
             //-----------------------------------
             signal(SIGCHLD, childHandler);
             pid_t pid = fork();
@@ -666,7 +676,6 @@ void shell_loop(int socket_fd)
                 }
                 dup2(stdin_fd, STDIN_FILENO);
                 dup2(stdout_fd, STDOUT_FILENO);
-                for(int o = 3; o < 1024; o++){close(o);}
                 execute_cmd(cmd_pack[i].args);
                 exit(0);
             }
@@ -678,10 +687,25 @@ void shell_loop(int socket_fd)
                 {
                     lineEndsWithPipeN = 1;
                 }
+
                 if(is_target || is_usr_target)
                 {
                     close(stdin_fd);
                 }
+                
+                if(cmd_pack[i].type == "in_user_pipe"||cmd_pack[i].type == "in_out_user_pipe"
+                    ||cmd_pack[i].type == "in_file_user_pipe"||cmd_pack[i].type == "in_pipe_user_pipe"
+                    ||cmd_pack[i].type == "in_numpipe_user_pipe")
+                {
+                    share_mem -> usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] = 0;
+                    share_mem -> usr_pipe_fd[cmd_pack[i].in_usr_id-1][client_id-1] = 0;
+                }
+                
+                if(cmd_pack[i].type == "out_user_pipe"||cmd_pack[i].type =="in_out_user_pipe")
+                {
+                    close(stdout_fd);
+                }
+
                 if(!lineEndsWithPipeN && cmd_pack[i].type != "out_user_pipe" 
                     && cmd_pack[i].type != "in_out_user_pipe" && (i == cmd_pack.size()-1))
                 {
