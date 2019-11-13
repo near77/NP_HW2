@@ -189,13 +189,13 @@ void shell_loop(int socket_fd)
         cmd_pack = parse_line(line);
         for(int i = 0; i < cmd_pack.size(); i++)
         {
-            printf("=============================\n");
-            printf("CMD: %s\n", cmd_pack[i].args[0].c_str());
-            for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
-            {
-                printf("ARGS: %s\n", cmd_pack[i].args[tmp_idx].c_str());
-            }
-            printf("=============================\n");
+            // printf("=============================\n");
+            // printf("CMD: %s\n", cmd_pack[i].args[0].c_str());
+            // for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
+            // {
+            //     printf("ARGS: %s\n", cmd_pack[i].args[tmp_idx].c_str());
+            // }
+            // printf("=============================\n");
             //--Check builtin--------------------
             int is_builtin = 0;
             is_builtin = check_builtin(cmd_pack[i].args);
@@ -310,6 +310,7 @@ void shell_loop(int socket_fd)
         if(exit_flag)
         {
             exit_flag = 0;
+            close(socket_fd);
             break;
         }
     }
@@ -349,13 +350,13 @@ int main(int argc, char *argv[])
     { 
         perror("bind failed"); 
     } 
-    
+
+    if (listen(server_fd, 3) < 0) 
+    { 
+        perror("listen"); 
+    } 
     while(1)
     {
-        if (listen(server_fd, 3) < 0) 
-        { 
-            perror("listen"); 
-        } 
         printf("Waiting for connection.\n");
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
                        (socklen_t*)&addrlen))<0) 
@@ -365,6 +366,9 @@ int main(int argc, char *argv[])
         else
         {
             shell_loop(new_socket);
+            close(0);
+            close(1);
+            close(2);
             close(new_socket);
         }
     }
