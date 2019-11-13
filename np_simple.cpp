@@ -189,11 +189,13 @@ void shell_loop(int socket_fd)
         cmd_pack = parse_line(line);
         for(int i = 0; i < cmd_pack.size(); i++)
         {
-            // printf("CMD: %s\n", cmd_pack[i].args[0].c_str());
-            // for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
-            // {
-            //     printf("ARGS: %s\n", cmd_pack[i].args[tmp_idx].c_str());
-            // }
+            printf("=============================\n");
+            printf("CMD: %s\n", cmd_pack[i].args[0].c_str());
+            for(int tmp_idx = 0; tmp_idx < cmd_pack[i].args.size(); tmp_idx++)
+            {
+                printf("ARGS: %s\n", cmd_pack[i].args[tmp_idx].c_str());
+            }
+            printf("=============================\n");
             //--Check builtin--------------------
             int is_builtin = 0;
             is_builtin = check_builtin(cmd_pack[i].args);
@@ -364,7 +366,6 @@ int main(int argc, char *argv[])
         {
             shell_loop(new_socket);
             close(new_socket);
-            break;
         }
     }
     return 0;
