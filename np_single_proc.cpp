@@ -736,7 +736,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd);
+                            usr_pipe_table[current_usr_id-1][(cmd_pack[i].out_usr_id)-1].cmd.c_str());
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     write(connect_info_table[info_idx].socket_fd, tmp, strlen(tmp)); 
@@ -828,7 +828,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
                     usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
@@ -974,7 +974,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
                     usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
@@ -1034,7 +1034,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
                     usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
@@ -1114,7 +1114,7 @@ int exe_shell_cmd(int socket_fd, int &cmd_no, vector <number_pipe> &numpipe_tabl
                     sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
                             connect_info_table[connect_info_idx].user_name.c_str(),
                             current_usr_id, sender_name.c_str(), cmd_pack[i].in_usr_id,
-                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd);
+                            usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd.c_str());
                     usr_pipe_table[(cmd_pack[i].in_usr_id)-1][current_usr_id-1].cmd = " ";
                     //if(connect_info_table[info_idx].socket_fd != socket_fd)
                     
