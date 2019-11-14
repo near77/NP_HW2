@@ -624,9 +624,7 @@ void shell_loop(int socket_fd)
                             share_mem->client_name[client_id-1],
                             client_id, share_mem->client_name[cmd_pack[i].in_usr_id-1],
                             cmd_pack[i].in_usr_id, line.c_str());
-                    printf("EXECUTE CMD\n");
                     yell(tmp);
-                    printf("EXECUTE CMD\n");
                 }
                 //-----------------------------------------------
             }
