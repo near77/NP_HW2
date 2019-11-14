@@ -49,7 +49,7 @@ string message =
 "****************************************\n\
 ** Welcome to the information server. **\n\
 ****************************************\n\
-*** User ’(no name)’ entered from ";
+*** User '(no name)' entered from ";
 int client_id = -1;
 int exit_flag = 0;
 
@@ -505,7 +505,7 @@ void shell_loop(int socket_fd)
         cmd_pack = parse_line(line);
         for(int i = 0; i < cmd_pack.size(); i++)
         {
-            printf("EXECUTE CMD: %s\n", cmd_pack[i].args[0].c_str());
+            //printf("EXECUTE CMD: %s\n", cmd_pack[i].args[0].c_str());
             //--Check builtin--------------------
             int is_builtin = 0;
             is_builtin = check_builtin(cmd_pack[i].args, socket_fd);
