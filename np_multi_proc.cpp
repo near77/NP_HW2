@@ -39,7 +39,7 @@ struct client_share_memory
     char client_name[30][200];//init (no name)
     int client_pid[30];//init 0
     int usr_pipe_table[30][30];//init 0, if != 0 ; file_name = (i+1)_(j+1)
-    char tell_table[30][30][200];//init ""
+    char tell_table[30][30][1024];//init ""
     char ip_port_table[30][50];
     int usr_pipe_fd[30][30];
 };
