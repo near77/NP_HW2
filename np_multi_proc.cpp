@@ -437,7 +437,7 @@ int execute_cmd(vector <string> args)//Execute bin command
         strcat(tmp, "Unknown command: [");
         strcat(tmp, exec_args[0]);
         strcat(tmp, "].\n");
-        write(2, tmp, sizeof(char)*100);
+        write(2, tmp, strlen(tmp));
         exit(0);
     }
     return status;
@@ -788,14 +788,17 @@ int main(int argc, char *argv[])
             }
             puts("Welcome message sent successfully"); 
             //---------------------------------------
+            string ip_port = string(inet_ntoa(address.sin_addr));
+            ip_port += ":";
+            ip_port += to_string(ntohs(address.sin_port));
+            char msg[100];
+            sprintf(msg, "*** User '(no name)' entered from %s. ***", ip_port.c_str());
             int shm_idx = -1;
             for(int i = 0; i < 30; i++)
             {
                 if(share_mem -> client_pid[i] == -1)
                 {
-                    string ip_port = string(inet_ntoa(address.sin_addr));
-                    ip_port += ":";
-                    ip_port += to_string(ntohs(address.sin_port));
+                    
                     strcpy(share_mem -> ip_port_table[i], ip_port.c_str());
                     //share_mem -> ip_port_table[i] = ip_port;
                     shm_idx = i;
