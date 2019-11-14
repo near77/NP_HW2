@@ -608,7 +608,7 @@ void shell_loop(int socket_fd)
                 else if(share_mem->usr_pipe_table[cmd_pack[i].in_usr_id-1][client_id-1] == 0)
                 {
                     char tmp[100];
-                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exists yet. ***\n", 
+                    sprintf(tmp, "*** Error: the pipe #%d->#%d does not exist yet. ***\n", 
                             cmd_pack[i].in_usr_id, client_id);
                     write(socket_fd, tmp, strlen(tmp));
                     int devNull = open("/dev/null", O_WRONLY);
@@ -653,7 +653,6 @@ void shell_loop(int socket_fd)
                 }
                 else
                 {
-                    printf("OOOOOOOO\n");
                     //signal target pid and open FIFO
                     share_mem ->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] = 1;
                     char filename[30];
