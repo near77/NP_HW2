@@ -94,7 +94,7 @@ void tell(vector <string> args)
     }
     else
     {
-        printf("*** Error: user #%d does not exist yet. ***\n", share_mem -> client_pid[stoi(args[1])-1]);
+        printf("*** Error: user #%d does not exist yet. ***\n", args[1].c_str());
     }
 }
 
@@ -620,6 +620,12 @@ void shell_loop(int socket_fd)
                     //signal handler will receive a signal and record
                     //the fd than here will simply set that fd to stdin
                     stdin_fd = share_mem -> usr_pipe_fd[cmd_pack[i].in_usr_id-1][client_id-1];
+                    char tmp[100];
+                    sprintf(tmp, "*** %s (#%d) just received from %s (#%d) by '%s' ***\n", 
+                            share_mem->client_name[client_id-1],
+                            client_id, share_mem->client_name[cmd_pack[i].out_usr_id-1],
+                            cmd_pack[i].out_usr_id, line.c_str());
+                    yell(tmp);
                 }
                 //-----------------------------------------------
             }
@@ -656,6 +662,12 @@ void shell_loop(int socket_fd)
                     kill(share_mem->client_pid[cmd_pack[i].out_usr_id-1], SIGUSR2);
                     stdout_fd = open(filename, O_WRONLY);
                     unlink(filename);
+                    char tmp[100];
+                    sprintf(tmp, "*** %s (#%d) just piped '%s' to %s (#%d) ***\n", 
+                            share_mem->client_name[client_id-1],
+                            client_id, line.c_str(), share_mem->client_name[cmd_pack[i].out_usr_id-1],
+                            cmd_pack[i].out_usr_id);
+                    yell(tmp);
                 }
                 //-----------------------------------------------
             }
@@ -792,7 +804,8 @@ int main(int argc, char *argv[])
             ip_port += ":";
             ip_port += to_string(ntohs(address.sin_port));
             char msg[100];
-            sprintf(msg, "*** User '(no name)' entered from %s. ***", ip_port.c_str());
+            sprintf(msg, "*** User '(no name)' entered from %s. ***\n", ip_port.c_str());
+            yell(msg);
             int shm_idx = -1;
             for(int i = 0; i < 30; i++)
             {
