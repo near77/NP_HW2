@@ -471,7 +471,9 @@ void user_pipe_handler(int signo)
 {
     for(int i = 0; i < 30; i++)
     {
-        if(share_mem -> usr_pipe_table[i][client_id-1] != 0)
+
+        if(share_mem -> usr_pipe_table[i][client_id-1] != 0 &&
+            share_mem ->usr_pipe_fd[i][client_id-1] == 0)
         {   
             char filename[30];
             sprintf(filename, "user_pipe/%d_%d", i+1, client_id);
@@ -506,7 +508,6 @@ void shell_loop(int socket_fd)
         cmd_pack = parse_line(line);
         for(int i = 0; i < cmd_pack.size(); i++)
         {
-            //printf("EXECUTE CMD: %s\n", cmd_pack[i].args[0].c_str());
             //--Check builtin--------------------
             int is_builtin = 0;
             is_builtin = check_builtin(cmd_pack[i].args, socket_fd);
@@ -652,7 +653,7 @@ void shell_loop(int socket_fd)
                 }
                 else
                 {
-                    //--TODO---
+                    printf("OOOOOOOO\n");
                     //signal target pid and open FIFO
                     share_mem ->usr_pipe_table[client_id-1][cmd_pack[i].out_usr_id-1] = 1;
                     char filename[30];
