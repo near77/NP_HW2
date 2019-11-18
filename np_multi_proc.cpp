@@ -694,7 +694,8 @@ void shell_loop(int socket_fd)
             {
                 int lineEndsWithPipeN = 0;
                 if(cmd_pack[cmd_pack.size()-1].type == "num_pipe" 
-                    or cmd_pack[cmd_pack.size()-1].type == "err_num_pipe")
+                    || cmd_pack[cmd_pack.size()-1].type == "err_num_pipe"
+                    || cmd_pack[cmd_pack.size()-1].type == "in_num_pipe")
                 {
                     lineEndsWithPipeN = 1;
                 }
