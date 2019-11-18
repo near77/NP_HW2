@@ -232,6 +232,24 @@ vector <command> parse_line(string line)
                                 i++;
                                 break;
                             }
+                            else if(tokens[i+1][0] == '!')
+                            {
+                                is_in_usrpipe = 0;
+                                if(tokens[i+1][1])
+                                {
+                                    cmd.type = "in_err_num_pipe";
+                                    cmd.num_pipe = stoi(tokens[i+1].substr(1, string::npos));
+                                    cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
+                                }
+                                else
+                                {
+                                    cmd.type = "in_err_pipe";
+                                    cmd.in_usr_id = stoi(tokens[i].substr(1, string::npos));
+                                }
+                                i++;
+                                i++;
+                                break;
+                            }
                         }
                         if(is_in_usrpipe)// <1
                         {
