@@ -490,7 +490,7 @@ void shell_loop(int socket_fd)
 {
     dup2(socket_fd, STDOUT_FILENO);
     dup2(socket_fd, STDIN_FILENO);
-    dup2(socket_fd, STDERR_FILENO);
+    //dup2(socket_fd, STDERR_FILENO);
     
     string line;
     string const DELI{" "};
