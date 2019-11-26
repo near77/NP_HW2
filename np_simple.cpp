@@ -18,14 +18,20 @@ int exit_flag = 0;
 //-----Built in command-------------------------------
 void printenv(vector <string> args)
 {
-    string env = getenv(args[1].c_str());
-    if(env!=""){printf("%s\n", env.c_str());}
+    char* env = getenv(args[1].c_str());
+    if(env != NULL)
+    {
+        printf("%s\n", env);
+    }
 }
 
 int check_builtin(vector <string> args)
 {
     int is_builtin = 1;
-    if(args[0] == "printenv"){printenv(args);}
+    if(args[0] == "printenv")
+    {
+        printenv(args);
+    }
     else if(args[0] == "exit")
     {
         exit_flag = 1;
